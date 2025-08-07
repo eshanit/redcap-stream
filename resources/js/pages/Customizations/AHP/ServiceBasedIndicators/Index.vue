@@ -130,9 +130,11 @@ const cardColors = {
               Comprehensive HIV services tracking including testing, ART initiation, retention, and viral load
               suppression.
             </p>
+            <Link :href="route('packages.service_based_indicators.hiv_health', [props.project.project_id])">
             <Button class="w-full cursor-pointer text-teal-600 hover:bg-teal-300 font-bold" :class="cardColors.hiv.bg">
               View Analysis <i class="fas fa-arrow-right ml-2"></i>
             </Button>
+            </Link>
           </CardContent>
         </Card>
 
@@ -152,10 +154,12 @@ const cardColors = {
             <p class="text-gray-600 mb-4">
               Mental health screenings, diagnosis of depression/anxiety, and referral tracking for comprehensive care.
             </p>
+            <Link :href="route('packages.service_based_indicators.mental_health', [props.project.project_id])">
             <Button class="w-full cursor-pointer text-indigo-600 hover:bg-indigo-300 font-bold"
               :class="cardColors.mental.bg">
               View Analysis <i class="fas fa-arrow-right ml-2"></i>
             </Button>
+            </Link>
           </CardContent>
         </Card>
 
@@ -292,9 +296,7 @@ const cardColors = {
   @apply transform -translate-y-1 shadow-xl;
 } */
 
-. {
-  animation: fadeIn 0.5s ease-in;
-}
+
 
 @keyframes fadeIn {
   from {

@@ -33,7 +33,7 @@ Route::middleware('auth')->group(function () {
     });
 
     // Project NCD PenPlus
-    Route::group(['as' => 'ahp_register_2025_test.', 'prefix' => 'ahp'], function () {
+    Route::group(['as' => 'ahp_register_2025_v2.', 'prefix' => 'ahp'], function () {
         Route::get('project/{project_id}', AHPControllers\ProjectDashBoardController::class)->name('project.dashboard');
         Route::get('project/{project_id}/questionnaire/dashboard', AHPControllers\QuestionnaireController::class)->name('questionnaire.dashboard');
     });
@@ -70,10 +70,13 @@ Route::middleware('auth')->group(function () {
         // AHP Service Based Indicators
         Route::get('project/{project_id}/delivery-indicators-1', ServiceBasedIndicatorsControllers\DashboardController::class)->name('service_based_indicators.dashboard');
         Route::get('project/{project_id}/delivery-indicators-1/maternal-health', ServiceBasedIndicatorsControllers\MaternalHealthController::class)->name('service_based_indicators.maternal_health');
-
         // AHP Sexual and Reproductive Health
         Route::get('project/{project_id}/delivery-indicators-1/sexual-and-reproductive-health', ServiceBasedIndicatorsControllers\SexAndReproHealthController::class)->name('service_based_indicators.sexual_and_repro_health');
-
+        // AHP Mental Health
+        Route::get('project/{project_id}/delivery-indicators-1/mental-health', ServiceBasedIndicatorsControllers\MentalHealthController::class)->name('service_based_indicators.mental_health');
+        // AHP HIV Health
+        Route::get('project/{project_id}/delivery-indicators-1/hiv-health', ServiceBasedIndicatorsControllers\HIVHealthController::class)->name('service_based_indicators.hiv_health');
+   
     });
 });
 

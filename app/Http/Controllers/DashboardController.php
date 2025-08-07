@@ -14,7 +14,7 @@ class DashboardController extends Controller
     {
         //
         return Inertia::render('Dashboard/Index', [
-            'projects' => Project::whereIn('project_id', [32, 39, 50])->get(),
+            'projects' => Project::whereIn('project_id', [32, 39, 48])->get(),
         ]);
 
     }
