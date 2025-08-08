@@ -180,10 +180,12 @@ const cardColors = {
               PrEP eligibility screening, initiation, and continuation rate monitoring for effective prevention
               programs.
             </p>
+            <Link :href="route('packages.service_based_indicators.prep_health', [props.project.project_id])">
             <Button class="w-full cursor-pointer text-amber-600 hover:bg-amber-300 font-bold"
               :class="cardColors.prep.bg">
               View Analysis <i class="fas fa-arrow-right ml-2"></i>
             </Button>
+            </Link>
           </CardContent>
         </Card>
 
