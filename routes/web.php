@@ -77,7 +77,7 @@ Route::middleware('auth')->group(function () {
         // AHP HIV Health
         Route::get('project/{project_id}/delivery-indicators-1/hiv-health', ServiceBasedIndicatorsControllers\HIVHealthController::class)->name('service_based_indicators.hiv_health');
         // AHP PreP Health
-        Route::get('project/{project_id}/delivery-indicators-1/prep-health', ServiceBasedIndicatorsControllers\PrePHealthController::class)->name('service_based_indicators.prep_health');
+        Route::get('project/{project_id}/delivery-indicators-1/prep-health', ServiceBasedIndicatorsControllers\PrEPHealthController::class)->name('service_based_indicators.prep_health');
     });
 });
 
