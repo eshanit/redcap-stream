@@ -1023,4 +1023,101 @@ class ProjectService
 
         return $data;
     }
+
+
+    //
+
+        /**
+     *  get Prep Data
+     */
+    public function getPrepData(int $projectId): Collection
+    {
+        $data = ProjectData3::query()
+            ->where('project_id', $projectId)
+            ->whereIn('field_name', [
+                'record',
+                'instance',
+                'demog_facility',
+                'demog_dateofbirth',
+                'demog_gender',
+                'demog_marital_status',
+                'demog_education',
+                'demog_client_profile',
+                'prepr_date',
+                'prepr_clinical_eligible', // should be 1
+                'prep_visit_date' // for continuation rates
+            ])
+            ->get()
+            ->groupBy('record')
+            ->map(function ($group, $record) {
+
+                // Group data by instance and map to structured array
+                $allInstances = $group->groupBy('instance')->map(function ($instanceGroup, $instance) {
+
+                    if ($instance != '') {
+                        $newInst = $instance;
+                    } else {
+                        $newInst = 1;
+                    }
+
+                    return [
+                        'instance' => $newInst,
+                        'health_facility' => $instanceGroup->where('field_name', 'demog_facility')->first()?->value,
+                        'date_of_birth' => $instanceGroup->where('field_name', 'demog_dateofbirth')->first()?->value,
+                        'gender' => $instanceGroup->where('field_name', 'demog_gender')->first()?->value,
+                        'marital_status' => $instanceGroup->where('field_name', 'demog_marital_status')->first()?->value,
+                        'education' => $instanceGroup->where('field_name', 'demog_education')->first()?->value,
+                        'client_profile' => $instanceGroup->where('field_name', 'demog_client_profile')->first()?->value,
+                        'prepr_date' => $instanceGroup->where('field_name', 'prepr_date')->first()?->value,
+                        'prepr_clinical_eligible' => $instanceGroup->where('field_name', 'prepr_clinical_eligible')->first()?->value,
+                        'prep_visit_date' => $instanceGroup->where('field_name', 'prep_visit_date')->first()?->value, // Collect all fp_method values
+                    ];
+                });
+
+                // Find first instance with valid demographics for fallback
+                $firstValidDemographics = $allInstances->first(function ($demo) {
+                    return ! is_null($demo['health_facility']) ||
+                        ! is_null($demo['gender']) ||
+                        ! is_null($demo['marital_status']) ||
+                        ! is_null($demo['education']) ||
+                        ! is_null($demo['client_profile']);
+                });
+
+                // Filter instances with at least one Prepr Health screening field present
+                $instancesPrepScreenings = $allInstances->filter(function ($demo) {
+                    return ! is_null($demo['prepr_clinical_eligible']) ||
+                        ! is_null($demo['prep_visit_date']) ||
+                        ! is_null($demo['prepr_date']);
+                });
+
+                // Process treated instances
+                return $instancesPrepScreenings->map(function ($demo) use ($record, $firstValidDemographics) {
+                 
+                    // Merge current instance data with fallback demographics
+                    $genderCode = $demo['gender'] ?? $firstValidDemographics['gender'] ?? null;
+                    $facilityCode = $demo['health_facility'] ?? $firstValidDemographics['health_facility'] ?? null;
+                    $maritalStatusCode = $demo['marital_status'] ?? $firstValidDemographics['marital_status'] ?? null;
+                    $clientProfileCode = $demo['client_profile'] ?? $firstValidDemographics['client_profile'] ?? null;
+                    $educationCode = $demo['education'] ?? $firstValidDemographics['education'] ?? null;
+            
+                    return [
+                        'record' => $record,
+                        'visit' => $demo['instance'],
+                        'health_facility' => AHPFacilityEnum::fromValue($facilityCode),
+                        'date_of_birth' => $demo['date_of_birth'] ?? $firstValidDemographics['date_of_birth'] ?? null,
+                        'gender' => GenderEnum::fromValue($genderCode),
+                        'marital_status' => MaritalStatusEnum::fromValue($maritalStatusCode),
+                        'education' => EducationLevelEnum::fromValue($educationCode),
+                        'client_profile' => ClientProfileEnum::fromValue($clientProfileCode),
+                        'prepr_date' => $demo['prepr_date'] ?? null,
+                        'prep_visit_date' => $demo['prep_visit_date'] ?? null,
+                        'prepr_clinical_eligible' => $demo['prepr_clinical_eligible'], // Convert to boolean
+                    ];
+                });
+            })
+            ->flatten(1)
+            ->values();
+
+        return $data;
+    }
 }
