@@ -32,17 +32,22 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
     {
         title: props.project.app_title,
-        href: '/project/' + props.project.project_id/+ '/dashboard',
+        href: '/project/' + props.project.project_id,
+    },
+    {
+        title: 'Custom Packages',
+        href: '/packages/project/' + props.project.project_id + '/dashboard',
     },
     {
         title: 'Service Based Indicators',
-        href: '/packages/project/' + props.project.project_id + '/service-indicators',
+        href: '/packages/project/' + props.project.project_id + '/delivery-indicators-1',
     },
     {
-        title: 'PrEP Health Analysis',
+        title: 'Prep Health Analysis',
         href: ''
     }
 ];
+
 
 // Enhanced data with calculated fields
 const enhancedData = computed(() => {
