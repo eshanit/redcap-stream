@@ -19,6 +19,9 @@ class EnrolledLastThreeMonthsController extends Controller
             ->select('project_id', 'app_title')
             ->findOrFail($projectId);
 
+            
+         //dd($projectId);
+
         return Inertia::render('Customizations/NCDPPlus/CoreIndicators/EnrolledLastThreeMonths', [
             'project' => $project,
         ]);

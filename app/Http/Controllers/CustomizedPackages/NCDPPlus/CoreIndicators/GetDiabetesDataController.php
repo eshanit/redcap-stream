@@ -31,6 +31,7 @@ class GetDiabetesDataController extends Controller
         if ($status == 'mortalitythreemonths') {
             $data = $this->projectDiabetesDataService->getRecentDiabetesDeaths($projectId, $condition);
         }
+
         if (empty($data) || $data->isEmpty()) {
             return response()->json(['message' => 'No data found.'], 404);
         }

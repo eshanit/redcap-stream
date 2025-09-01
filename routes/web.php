@@ -57,7 +57,7 @@ Route::middleware('auth')->group(function () {
         Route::get('project/{project_id}/core_indicators/ltfulastthreemonths', CoreIndicatorsControllers\NewlyLTFUController::class)->name('core.enrolled.ltfu3months');
         Route::get('project/{project_id}/core_indicators/mortalitythreemonths', CoreIndicatorsControllers\DeathLastThreeMonthsController::class)->name('core.enrolled.death3months');
 
-        // Active Paients
+        // Active Patients
         Route::get('project/{project_id}/core_indicators/{status}/{condition}/all/data', CoreIndicatorsControllers\GetAllDataController::class)->name('core.all.data');
         Route::get('project/{project_id}/core_indicators/{status}/{condition}/diabetes/data', CoreIndicatorsControllers\GetDiabetesDataController::class)->name('core.diabetes.data');
         Route::get('project/{project_id}/core_indicators/{status}/{condition}/cardiac/data', CoreIndicatorsControllers\GetCardiacDataController::class)->name('core.cardiac.data');
@@ -65,10 +65,10 @@ Route::middleware('auth')->group(function () {
         Route::get('project/{project_id}/core_indicators/{status}/{condition}/crd/data', CoreIndicatorsControllers\GetRespiratoryDataController::class)->name('core.resp.data');
         Route::get('project/{project_id}/core_indicators/{status}/{condition}/ckd/data', CoreIndicatorsControllers\GetCKDDataController::class)->name('core.ckd.data');
         Route::get('project/{project_id}/core_indicators/{status}/{condition}/cld/data', CoreIndicatorsControllers\GetCLDDataController::class)->name('core.cld.data');
-        // /
 
         // AHP Service Based Indicators
         Route::get('project/{project_id}/delivery-indicators-1', ServiceBasedIndicatorsControllers\DashboardController::class)->name('service_based_indicators.dashboard');
+
         Route::get('project/{project_id}/delivery-indicators-1/maternal-health', ServiceBasedIndicatorsControllers\MaternalHealthController::class)->name('service_based_indicators.maternal_health');
         // AHP Sexual and Reproductive Health
         Route::get('project/{project_id}/delivery-indicators-1/sexual-and-reproductive-health', ServiceBasedIndicatorsControllers\SexAndReproHealthController::class)->name('service_based_indicators.sexual_and_repro_health');
@@ -77,7 +77,7 @@ Route::middleware('auth')->group(function () {
         // AHP HIV Health
         Route::get('project/{project_id}/delivery-indicators-1/hiv-health', ServiceBasedIndicatorsControllers\HIVHealthController::class)->name('service_based_indicators.hiv_health');
         // AHP PreP Health
-        Route::get('project/{project_id}/delivery-indicators-1/prep-health', ServiceBasedIndicatorsControllers\PrePHealthController::class)->name('service_based_indicators.prep_health');
+        Route::get('project/{project_id}/delivery-indicators-1/prep-health', ServiceBasedIndicatorsControllers\PrEPHealthController::class)->name('service_based_indicators.prep_health');
     });
 });
 

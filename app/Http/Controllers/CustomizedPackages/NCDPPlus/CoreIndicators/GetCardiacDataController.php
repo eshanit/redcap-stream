@@ -16,18 +16,30 @@ class GetCardiacDataController extends Controller
 
     public function __invoke(int $projectId, string $status, string $condition)
     {
+
+        //dd($status, $condition);
+
+         if ($status == 'allpatients') {
+            $data = $this->projectCardiacDataService->getAllRespondents($projectId, $condition);
+        }
+
         if ($status == 'activepatients') {
             $data = $this->projectCardiacDataService->getActiveRespondents($projectId, $condition);
         }
+
         if ($status == 'femalepatients') {
             $data = $this->projectCardiacDataService->getActiveFemales($projectId, $condition);
         }
+
         if ($status == 'lastthreemonths') {
+
             $data = $this->projectCardiacDataService->getEnrolledLastThreeMonths($projectId, $condition);
         }
+
         if ($status == 'lastthreemonthsltfu') {
             $data = $this->projectCardiacDataService->getNewlyLTFU($projectId, $condition);
         }
+
         if ($status == 'mortalitythreemonths') {
             $data = $this->projectCardiacDataService->getRecentCardiacDeaths($projectId, $condition);
         }

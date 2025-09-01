@@ -31,9 +31,11 @@ class ProjectDiabetesDataService
 
     public function getEnrolledLastThreeMonths(int $projectId, string $condition): Collection
     {
+
         return $this->getAllRespondents($projectId, $condition)
             ->filter(fn ($respondent) => $respondent['days_after_enroll'] <= 90)
             ->values();
+
     }
 
     public function getNewlyLTFU(int $projectId, string $condition): Collection
@@ -121,12 +123,11 @@ class ProjectDiabetesDataService
             $dmEnrollDate = $groupedByInstance->get(1)?->firstWhere('field_name', 'dm_enrollment_date')?->value;
             $gender = $groupedByInstance->get(1)?->firstWhere('field_name', 'gender_demo')?->value;
             $age = $groupedByInstance->get(1)?->firstWhere('field_name', 'age_demo')?->value;
-
             $status = $this->determineStatus($dmOutcome, $nextAppoDate);
             $daysAfterEnroll = $this->calcDaysAfterEnroll($dmEnrollDate);
             $daysLTFU = $this->calcNewlyLTFU($nextAppoDate);
 
-            // dd($gender, $age);
+            // dd($dmEnrollDate, $daysAfterEnroll);
 
             if ($gender == 1) {
                 $realGender = 'Male';
@@ -192,12 +193,12 @@ class ProjectDiabetesDataService
     }
 
     // last 3 months
-    private function calcNewlyLTFU(string $nextAppoDate)
+    private function calcNewlyLTFU(?string $nextAppoDate)
     {
         $nextAppoDateCarbon = Carbon::parse($nextAppoDate);
         $daysDifference = $nextAppoDateCarbon->diffInDays(now(), false); // Negative if future
 
-        return $daysDifference;
+        return $daysDifference ?? 0;
 
     }
 
