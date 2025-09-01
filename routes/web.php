@@ -34,7 +34,7 @@ Route::middleware('auth')->group(function () {
 
     // Project NCD PenPlus
     Route::group(['as' => 'ahp_register_2025_v2.', 'prefix' => 'ahp'], function () {
-        Route::get('project/{project_id}', AHPControllers\ProjectDashBoardController::class)->name('project.dashboard');
+        Route::get('project/{project_id}', AHPControllers\ProjectDashboardController::class)->name('project.dashboard');
         Route::get('project/{project_id}/questionnaire/dashboard', AHPControllers\QuestionnaireController::class)->name('questionnaire.dashboard');
     });
 

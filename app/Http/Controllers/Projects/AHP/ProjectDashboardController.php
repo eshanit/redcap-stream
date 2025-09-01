@@ -7,7 +7,7 @@ use App\Models\Project;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
-class ProjectDashBoardController extends Controller
+class ProjectDashboardController extends Controller
 {
     /**
      * Handle the incoming request.
