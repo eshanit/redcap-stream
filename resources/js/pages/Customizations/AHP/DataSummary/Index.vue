@@ -28,7 +28,7 @@ const breadcrumbs: BreadcrumbItem[] = [
         href: '/packages/project/' + props.project.project_id + '/dashboard',
     },
     {
-        title: 'Service Based Indicators',
+        title: 'Management Data Report',
         href: ''
     }
 ];
