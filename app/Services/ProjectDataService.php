@@ -738,8 +738,8 @@ class ProjectDataService
 public function getAllMetricsWithFacilityBreakdown(int $projectId): array
 {
     $metrics = [
-        'outPatients' => 'opd_date',
-        'stiPatients' => 'sti_date',
+        'outPatients' => 'op_a1',
+        'stiPatients' => 'sti_repeat',
         'fpPatients' => 'fp_date',
         'ancrPatients' => 'ancr_date',
         'pncrPatients' => 'pncr_date',
