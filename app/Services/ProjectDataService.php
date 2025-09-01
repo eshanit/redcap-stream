@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\ProjectData3;
+use App\Models\Project;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
@@ -661,6 +663,132 @@ class ProjectDataService
             $scdNewlyDeaths,
         ]);
     }
+
+    //
+
+    public function countDistinctRecordsByField(Project $project, string $fieldName): int
+    {
+        return $project->project_data()
+            ->where('field_name', $fieldName)
+            ->whereNotNull('value')
+            ->distinct('record')
+            ->count('record');
+    }
+
+    public function getTotalRespondents(Project $project): int
+    {
+        return $project->project_data()->distinct('record')->count('record');
+    }
+
+    //
+        public function countByField(Project $project, string $fieldName): int
+    {
+        return $project->project_data()
+            ->where('field_name', $fieldName)
+            ->whereNotNull('value')
+            ->distinct('record')
+            ->count('record');
+    }
+
+     public function getFacilityBreakdown(Project $project, string $fieldName = null): array
+    {
+        $query = $project->project_data();
+        
+        if ($fieldName) {
+            $query->where('field_name', $fieldName)
+                  ->whereNotNull('value');
+        }
+        
+       // dd($query);
+
+        return $query->where('field_name', 'demog_facility')
+            ->groupBy('value')
+            ->select('value', DB::raw('count(*) as count'))
+            ->pluck('count', 'value')
+            ->toArray();
+    }
+
+    public function getMetricsWithFacilityBreakdown(Project $project): array
+    {
+        $metrics = [
+            'outPatients' => 'opd_date',
+            'stiPatients' => 'sti_date',
+            'fpPatients' => 'fp_date',
+            'ancrPatients' => 'ancr_date',
+            'pncrPatients' => 'pncr_date',
+            'prepPatients' => 'prepr_date',
+            'mentalHealthPatients' => 'mh_screening_tools',
+            'healthEducationPatients' => 'he_receive',
+            'counselingPatients' => 'couns_receive',
+            'artPatients' => 'artr_registration_date',
+        ];
+
+        $results = [];
+        
+        foreach ($metrics as $key => $field) {
+            $results[$key] = [
+                'total' => $this->countByField($project, $field),
+                'byFacility' => $this->getFacilityBreakdown($project, $field)
+            ];
+        }
+
+        return $results;
+    }
+
+public function getAllMetricsWithFacilityBreakdown(int $projectId): array
+{
+    $metrics = [
+        'outPatients' => 'opd_date',
+        'stiPatients' => 'sti_date',
+        'fpPatients' => 'fp_date',
+        'ancrPatients' => 'ancr_date',
+        'pncrPatients' => 'pncr_date',
+        'prepPatients' => 'prepr_date',
+        'mentalHealthPatients' => 'mh_screening_tools',
+        'healthEducationPatients' => 'he_receive',
+        'counselingPatients' => 'couns_receive',
+        'artPatients' => 'artr_registration_date',
+    ];
+
+    $results = [];
+    
+    // Get all records that have facility information
+    $facilities = DB::table('redcap_data3')
+        ->where('project_id', $projectId)
+        ->where('field_name', 'demog_facility')
+        ->pluck('value', 'record')
+        ->toArray();
+
+        //dd($projectId,$facilities);
+    
+    // For each metric, count records and group by facility
+    foreach ($metrics as $key => $field) {
+        $records = DB::table('redcap_data3')
+            ->where('project_id', $projectId)
+            ->where('field_name', $field)
+            ->whereNotNull('value')
+            ->pluck('record')
+            ->toArray();
+        
+        $byFacility = [];
+        $total = 0;
+        
+        foreach ($records as $record) {
+            if (isset($facilities[$record])) {
+                $facility = $facilities[$record];
+                $byFacility[$facility] = isset($byFacility[$facility]) ? $byFacility[$facility] + 1 : 1;
+                $total++;
+            }
+        }
+        
+        $results[$key] = [
+            'total' => $total,
+            'byFacility' => $byFacility
+        ];
+    }
+
+    return $results;
+}
 
     /**
      * Clean and normalize HbA1c values

@@ -199,12 +199,12 @@ class ProjectCardiacDataService
     }
 
     // last 3 months
-    private function calcNewlyLTFU(string $nextAppoDate)
+    private function calcNewlyLTFU(?string $nextAppoDate)
     {
         $nextAppoDateCarbon = Carbon::parse($nextAppoDate);
         $daysDifference = $nextAppoDateCarbon->diffInDays(now(), false); // Negative if future
 
-        return $daysDifference;
+        return $daysDifference ?? null;
 
     }
 
