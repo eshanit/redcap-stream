@@ -36,14 +36,19 @@ const breadcrumbs: BreadcrumbItem[] = [
         href: '/project/' + props.project.project_id,
     },
     {
+        title: 'Custom Packages',
+        href: '/packages/project/' + props.project.project_id + '/dashboard',
+    },
+    {
         title: 'Service Based Indicators',
-        href: '/packages/project/' + props.project.project_id + '/service-indicators',
+        href: '/packages/project/' + props.project.project_id + '/delivery-indicators-1',
     },
     {
         title: 'HIV Testing',
         href: ''
     }
 ];
+
 
 // Enhanced data with calculated fields
 const enhancedData = computed(() => {

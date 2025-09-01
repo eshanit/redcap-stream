@@ -127,7 +127,7 @@ const breadcrumbs: BreadcrumbItem[] = [
                                 <PackageOpen class="ml-auto size-18" color="blue" />
                                 <Link :href="route('packages.dashboard', [project.project_id])">
                                     <Button variant="outline" class="border border-orange-500 text-orange-500 bg-white rounded w-full py-2 hover:bg-orange-500 hover:text-white cursor-pointer">
-                                        I'm feeling lucky
+                                        Go to Customized Reports
                                     </Button>
                                 </Link>
                             </div>
