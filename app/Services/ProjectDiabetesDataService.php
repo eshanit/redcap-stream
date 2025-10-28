@@ -154,33 +154,48 @@ class ProjectDiabetesDataService
         })->values();
     }
 
-    private function determineStatus($dmOutcome, $nextAppoDate): string
-    {
-        // Immediate LTFU if dm_outcome is 2
-        // if ($dmOutcome == 2) {
-        //     return 'Lost to Followup';
-        // }
-
-        // Check for active status (1 or 3)
-        if (in_array((int) $dmOutcome, [1, 3])) {
-
-            if (! $nextAppoDate) {
-                return 'Unknown'; // Missing appointment date
-            }
-
-            $nextAppoDateCarbon = Carbon::parse($nextAppoDate);
-            $daysDifference = $nextAppoDateCarbon->diffInDays(now(), false); // Negative if future
-
-            if ($daysDifference >= 0) { // Past appointment
-                return $daysDifference >= 60 ? 'Lost to Followup' : 'Active';
-            }
-
-            return 'Active'; // Future appointment
-        }
-
-        return 'Not Active'; // dm_outcome not 1, 2, or 3
+   private function safeParseDate(?string $dateString): ?Carbon
+{
+    if (empty($dateString)) {
+        return null;
     }
 
+    try {
+        return Carbon::parse($dateString);
+    } catch (\Exception $e) {
+        return null;
+    }
+}
+
+private function determineStatus($dmOutcome, ?string $nextAppoDate): string
+{
+    if (in_array((int) $dmOutcome, [1, 3], true)) {
+        $nextAppoDateCarbon = $this->safeParseDate($nextAppoDate);
+        
+        if (!$nextAppoDateCarbon) {
+            return 'Needs Follow-up';
+        }
+
+        $daysDifference = $nextAppoDateCarbon->diffInDays(now(), false);
+
+        return $daysDifference >= 0
+            ? ($daysDifference >= 60 ? 'Lost to Followup' : 'Active')
+            : 'Active';
+    }
+
+    return 'Not Active';
+}
+
+private function calcNewlyLTFU(?string $nextAppoDate): ?int
+{
+    $nextAppoDateCarbon = $this->safeParseDate($nextAppoDate);
+    
+    if (!$nextAppoDateCarbon) {
+        return null;
+    }
+
+    return $nextAppoDateCarbon->diffInDays(now(), false);
+}
     // last 3 months
     private function calcDaysAfterEnroll(string $dmEnrollDate)
     {
@@ -192,15 +207,7 @@ class ProjectDiabetesDataService
 
     }
 
-    // last 3 months
-    private function calcNewlyLTFU(?string $nextAppoDate)
-    {
-        $nextAppoDateCarbon = Carbon::parse($nextAppoDate);
-        $daysDifference = $nextAppoDateCarbon->diffInDays(now(), false); // Negative if future
-
-        return $daysDifference ?? 0;
-
-    }
+  
 
     private function getDiagnosisValue(string $condition): ?string
     {

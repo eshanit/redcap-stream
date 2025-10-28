@@ -184,48 +184,51 @@ class ProjectCKDDataService
         return $instance?->firstWhere('field_name', $fieldName)?->value;
     }
 
-    /**
-     * Determine respondent status based on final_outcome and appointment date
-     */
-    private function determineStatus($dmOutcome, $nextAppoDate): string
-    {
-        //  dd($dmOutcome);
+  /**
+ * Safely parse date string, return null if invalid or empty
+ */
+private function safeParseDate(?string $dateString): ?Carbon
+{
+    if (empty($dateString)) {
+        return null;
+    }
 
-        // if ($dmOutcome == 2) {
-        //     return 'Lost to Followup';
-        // }
+    try {
+        return Carbon::parse($dateString);
+    } catch (\Exception $e) {
+        return null;
+    }
+}
 
-        if (in_array((int) $dmOutcome, [1, 3], true)) {
-            if (empty($nextAppoDate)) {
-                return 'Unknown';
-            }
-
-            try {
-                $nextAppoDateCarbon = Carbon::parse($nextAppoDate);
-                $daysDifference = $nextAppoDateCarbon->diffInDays(now(), false);
-                //  dd($daysDifference);
-
-                return $daysDifference >= 0
-                    ? ($daysDifference >= 60 ? 'Lost to Followup' : 'Active')
-                    : 'Active';
-            } catch (\Exception $e) {
-                return 'Unknown'; // Invalid date format
-            }
+private function determineStatus($dmOutcome, ?string $nextAppoDate): string
+{
+    if (in_array((int) $dmOutcome, [1, 3], true)) {
+        $nextAppoDateCarbon = $this->safeParseDate($nextAppoDate);
+        
+        if (!$nextAppoDateCarbon) {
+            return 'Needs Follow-up';
         }
 
-        return 'Not Active';
+        $daysDifference = $nextAppoDateCarbon->diffInDays(now(), false);
+
+        return $daysDifference >= 0
+            ? ($daysDifference >= 60 ? 'Lost to Followup' : 'Active')
+            : 'Active';
     }
 
-    // last 3 months
-    private function calcNewlyLTFU(string $nextAppoDate)
-    {
-        $nextAppoDateCarbon = Carbon::parse($nextAppoDate);
-        $daysDifference = $nextAppoDateCarbon->diffInDays(now(), false); // Negative if future
+    return 'Not Active';
+}
 
-        return $daysDifference;
-
+private function calcNewlyLTFU(?string $nextAppoDate): ?int
+{
+    $nextAppoDateCarbon = $this->safeParseDate($nextAppoDate);
+    
+    if (!$nextAppoDateCarbon) {
+        return null;
     }
 
+    return $nextAppoDateCarbon->diffInDays(now(), false);
+}
     // last 3 months
     private function calcDaysAfterEnroll(string $dmEnrollDate)
     {

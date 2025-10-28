@@ -142,6 +142,9 @@ onMounted(() => {
 </script>
 <template>
   <div>
+    <!-- <pre>
+        {{ props.enrolledData }}
+    </pre> -->
     <apexchart
       type="bar"
       height="350"

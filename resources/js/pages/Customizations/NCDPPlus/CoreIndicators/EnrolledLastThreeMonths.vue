@@ -140,6 +140,7 @@ const selectedComponent = (condition: string) => {
                             {{ form.condition }}
                             {{ itemData }}
                         </pre> -->
+                          <!-- <EnrollQuarterChart :enrolled-data="props.enrolled" /> -->
                         <component :is="selectedComponent(form.condition)?.component"
                             v-bind="selectedComponent(form.condition)?.props"
                             :description="selectedComponent(form.condition)?.description || '-'"

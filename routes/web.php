@@ -57,6 +57,58 @@ Route::middleware('auth')->group(function () {
         Route::get('project/{project_id}/core_indicators/ltfulastthreemonths', CoreIndicatorsControllers\NewlyLTFUController::class)->name('core.enrolled.ltfu3months');
         Route::get('project/{project_id}/core_indicators/mortalitythreemonths', CoreIndicatorsControllers\DeathLastThreeMonthsController::class)->name('core.enrolled.death3months');
 
+        /** NPP new */
+
+        // Active Patients
+        Route::get('project/{project_id}/core_indicators/nppactivepatients', [CoreIndicatorsControllers\PPlusActivePatientsController::class, 'index'])->name('core.pplusactive.patients');
+        Route::get('project/{project_id}/core_indicators/nppactivepatients/diabetes_1', [CoreIndicatorsControllers\PPlusActivePatientsController::class, 'type1Diabetes'])->name('core.pplusactive.type1Diabetes');
+        Route::get('project/{project_id}/core_indicators/nppactivepatients/diabetes_2', [CoreIndicatorsControllers\PPlusActivePatientsController::class, 'type2Diabetes'])->name('core.pplusactive.type2Diabetes');
+        Route::get('project/{project_id}/core_indicators/nppactivepatients/gestational_diabetes', [CoreIndicatorsControllers\PPlusActivePatientsController::class, 'unspecifiedDiabetes'])->name('core.pplusactive.unspecifiedDiabetes');
+        Route::get('project/{project_id}/core_indicators/nppactivepatients/rheumatic', [CoreIndicatorsControllers\PPlusActivePatientsController::class, 'rheumatic'])->name('core.pplusactive.rheumatic');
+        Route::get('project/{project_id}/core_indicators/nppactivepatients/congenital', [CoreIndicatorsControllers\PPlusActivePatientsController::class, 'congenital'])->name('core.pplusactive.congenital');
+        Route::get('project/{project_id}/core_indicators/nppactivepatients/heart_failure', [CoreIndicatorsControllers\PPlusActivePatientsController::class, 'heartFailure'])->name('core.pplusactive.heart_failure');
+        Route::get('project/{project_id}/core_indicators/nppactivepatients/other_cardiac', [CoreIndicatorsControllers\PPlusActivePatientsController::class, 'otherCardiac'])->name('core.pplusactive.other_cardiac');
+        Route::get('project/{project_id}/core_indicators/nppactivepatients/sickle_cell', [CoreIndicatorsControllers\PPlusActivePatientsController::class, 'sickleCell'])->name('core.pplusactive.sickle_cell');
+        Route::get('project/{project_id}/core_indicators/nppactivepatients/chronic_respiratory', [CoreIndicatorsControllers\PPlusActivePatientsController::class, 'chronicRespiratoryDisease'])->name('core.pplusactive.chronic_respiratory');
+        Route::get('project/{project_id}/core_indicators/nppactivepatients/chronic_kidney', [CoreIndicatorsControllers\PPlusActivePatientsController::class, 'chronicKidneyDisease'])->name('core.pplusactive.chronic_kidney');
+        Route::get('project/{project_id}/core_indicators/nppactivepatients/chronic_liver', [CoreIndicatorsControllers\PPlusActivePatientsController::class, 'chronicLiverDisease'])->name('core.pplusactive.chronic_liver');
+        Route::get('project/{project_id}/core_indicators/nppactivepatients/all', [CoreIndicatorsControllers\PPlusActivePatientsController::class, 'allActivePatients']);
+        Route::get('project/{project_id}/core_indicators/nppactivepatients/all/summary', [CoreIndicatorsControllers\PPlusActivePatientsController::class, 'getAllSummary']);
+
+        // LTFU Patients
+        Route::get('project/{project_id}/core_indicators/nppltfupatients', [CoreIndicatorsControllers\PPlusLTFUPatientsController::class, 'index'])->name('core.pplusltfu.patients');
+        Route::get('project/{project_id}/core_indicators/nppltfupatients/diabetes_1', [CoreIndicatorsControllers\PPlusLTFUPatientsController::class, 'type1Diabetes'])->name('core.pplusltfu.type1Diabetes');
+        Route::get('project/{project_id}/core_indicators/nppltfupatients/diabetes_2', [CoreIndicatorsControllers\PPlusLTFUPatientsController::class, 'type2Diabetes'])->name('core.pplusltfu.type2Diabetes');
+        Route::get('project/{project_id}/core_indicators/nppltfupatients/gestational_diabetes', [CoreIndicatorsControllers\PPlusLTFUPatientsController::class, 'unspecifiedDiabetes'])->name('core.pplusltfu.unspecifiedDiabetes');
+        Route::get('project/{project_id}/core_indicators/nppltfupatients/rheumatic', [CoreIndicatorsControllers\PPlusLTFUPatientsController::class, 'rheumatic'])->name('core.pplusltfu.rheumatic');
+        Route::get('project/{project_id}/core_indicators/nppltfupatients/congenital', [CoreIndicatorsControllers\PPlusLTFUPatientsController::class, 'congenital'])->name('core.pplusltfu.congenital');
+        Route::get('project/{project_id}/core_indicators/nppltfupatients/heart_failure', [CoreIndicatorsControllers\PPlusLTFUPatientsController::class, 'heartFailure'])->name('core.pplusltfu.heart_failure');
+        Route::get('project/{project_id}/core_indicators/nppltfupatients/other_cardiac', [CoreIndicatorsControllers\PPlusLTFUPatientsController::class, 'otherCardiac'])->name('core.pplusltfu.other_cardiac');
+        Route::get('project/{project_id}/core_indicators/nppltfupatients/sickle_cell', [CoreIndicatorsControllers\PPlusLTFUPatientsController::class, 'sickleCell'])->name('core.pplusltfu.sickle_cell');
+        Route::get('project/{project_id}/core_indicators/nppltfupatients/chronic_respiratory', [CoreIndicatorsControllers\PPlusLTFUPatientsController::class, 'chronicRespiratoryDisease'])->name('core.pplusltfu.chronic_respiratory');
+        Route::get('project/{project_id}/core_indicators/nppltfupatients/chronic_kidney', [CoreIndicatorsControllers\PPlusLTFUPatientsController::class, 'chronicKidneyDisease'])->name('core.pplusltfu.chronic_kidney');
+        Route::get('project/{project_id}/core_indicators/nppltfupatients/chronic_liver', [CoreIndicatorsControllers\PPlusLTFUPatientsController::class, 'chronicLiverDisease'])->name('core.pplusltfu.chronic_liver');
+        Route::get('project/{project_id}/core_indicators/nppltfupatients/all', [CoreIndicatorsControllers\PPlusLTFUPatientsController::class, 'allLTFUPatients']);
+        Route::get('project/{project_id}/core_indicators/nppltfupatients/all/summary', [CoreIndicatorsControllers\PPlusLTFUPatientsController::class, 'getAllSummary']);
+
+        // Mortality Patients
+        Route::get('project/{project_id}/core_indicators/nppmortalitypatients', [CoreIndicatorsControllers\PPlusMortalityPatientsController::class, 'index'])->name('core.pplusmortality.patients');
+        Route::get('project/{project_id}/core_indicators/nppmortalitypatients/diabetes_1', [CoreIndicatorsControllers\PPlusMortalityPatientsController::class, 'type1Diabetes'])->name('core.pplusmortality.type1Diabetes');
+        Route::get('project/{project_id}/core_indicators/nppmortalitypatients/diabetes_2', [CoreIndicatorsControllers\PPlusMortalityPatientsController::class, 'type2Diabetes'])->name('core.pplusmortality.type2Diabetes');
+        Route::get('project/{project_id}/core_indicators/nppmortalitypatients/gestational_diabetes', [CoreIndicatorsControllers\PPlusMortalityPatientsController::class, 'unspecifiedDiabetes'])->name('core.pplusmortality.unspecifiedDiabetes');
+        Route::get('project/{project_id}/core_indicators/nppmortalitypatients/rheumatic', [CoreIndicatorsControllers\PPlusMortalityPatientsController::class, 'rheumatic'])->name('core.pplusmortality.rheumatic');
+        Route::get('project/{project_id}/core_indicators/nppmortalitypatients/congenital', [CoreIndicatorsControllers\PPlusMortalityPatientsController::class, 'congenital'])->name('core.pplusmortality.congenital');
+        Route::get('project/{project_id}/core_indicators/nppmortalitypatients/heart_failure', [CoreIndicatorsControllers\PPlusMortalityPatientsController::class, 'heartFailure'])->name('core.pplusmortality.heart_failure');
+        Route::get('project/{project_id}/core_indicators/nppmortalitypatients/other_cardiac', [CoreIndicatorsControllers\PPlusMortalityPatientsController::class, 'otherCardiac'])->name('core.pplusmortality.other_cardiac');
+        Route::get('project/{project_id}/core_indicators/nppmortalitypatients/sickle_cell', [CoreIndicatorsControllers\PPlusMortalityPatientsController::class, 'sickleCell'])->name('core.pplusmortality.sickle_cell');
+        Route::get('project/{project_id}/core_indicators/nppmortalitypatients/chronic_respiratory', [CoreIndicatorsControllers\PPlusMortalityPatientsController::class, 'chronicRespiratoryDisease'])->name('core.pplusmortality.chronic_respiratory');
+        Route::get('project/{project_id}/core_indicators/nppmortalitypatients/chronic_kidney', [CoreIndicatorsControllers\PPlusMortalityPatientsController::class, 'chronicKidneyDisease'])->name('core.pplusmortality.chronic_kidney');
+        Route::get('project/{project_id}/core_indicators/nppmortalitypatients/chronic_liver', [CoreIndicatorsControllers\PPlusMortalityPatientsController::class, 'chronicLiverDisease'])->name('core.pplusmortality.chronic_liver');
+        Route::get('project/{project_id}/core_indicators/nppmortalitypatients/all', [CoreIndicatorsControllers\PPlusMortalityPatientsController::class, 'allMortalityPatients']);
+        Route::get('project/{project_id}/core_indicators/nppmortalitypatients/all/summary', [CoreIndicatorsControllers\PPlusMortalityPatientsController::class, 'getAllSummary']);
+
+
+
         // Active Patients
         Route::get('project/{project_id}/core_indicators/{status}/{condition}/all/data', CoreIndicatorsControllers\GetAllDataController::class)->name('core.all.data');
         Route::get('project/{project_id}/core_indicators/{status}/{condition}/diabetes/data', CoreIndicatorsControllers\GetDiabetesDataController::class)->name('core.diabetes.data');

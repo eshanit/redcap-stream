@@ -95,15 +95,15 @@ const MortalityIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height
                         <CardHeader>
                             <CardTitle class="flex items-center gap-3 text-lg">
                                 <div v-html="RecentEnrollmentIcon" class="text-orange-500" />
-                                <span>Active Patients II</span>
+                                <span>Recent Enrollments (3mo)</span>
                             </CardTitle>
                             <CardDescription class="text-sm">
-                                Patients active at Pen Plus Clinic
+                                New patient enrollments analysis
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
                             <div class="flex flex-col gap-4">
-                                <Link :href="route('packages.core.pplusactive.patients', [project.project_id])">
+                                <Link :href="route('packages.core.enrolled.3months', [project.project_id])">
                                 <Button
                                     class="w-full cursor-pointer bg-gradient-to-r from-orange-500 to-orange-600 text-white hover:from-orange-600 hover:to-orange-700">
                                     View Recent Enrollments
@@ -116,31 +116,7 @@ const MortalityIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height
 
                 <!-- Second Row -->
                 <div class="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-           
-                    <!-- LTFU Card -->
-                    <Card class="hover:shadow-lg transition-shadow duration-200">
-                        <CardHeader>
-                            <CardTitle class="flex items-center gap-3 text-lg">
-                                <div v-html="LTFUIcon" class="text-red-500" />
-                                <span>Recent LTFU </span>
-                            </CardTitle>
-                            <CardDescription class="text-sm">
-                                Lost to follow-up analysis
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div class="flex flex-col gap-4">
-                                <Link :href="route('packages.core.pplusltfu.patients', [project.project_id])">
-                                <Button
-                                    class="w-full cursor-pointer bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700">
-                                    View LTFU Analysis
-                                </Button>
-                                </Link>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                                  <!-- Active Patients Card -->
+                         <!-- Active Patients Card -->
                     <Card class="hover:shadow-lg transition-shadow duration-200">
                         <CardHeader>
                             <CardTitle class="flex items-center gap-3 text-lg">
@@ -163,6 +139,28 @@ const MortalityIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height
                         </CardContent>
                     </Card>
 
+                    <!-- LTFU Card -->
+                    <Card class="hover:shadow-lg transition-shadow duration-200">
+                        <CardHeader>
+                            <CardTitle class="flex items-center gap-3 text-lg">
+                                <div v-html="LTFUIcon" class="text-red-500" />
+                                <span>Recent LTFU (<3 months)</span>
+                            </CardTitle>
+                            <CardDescription class="text-sm">
+                                Lost to follow-up analysis
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div class="flex flex-col gap-4">
+                                <Link :href="route('packages.core.enrolled.ltfu3months', [project.project_id])">
+                                <Button
+                                    class="w-full cursor-pointer bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700">
+                                    View LTFU Analysis
+                                </Button>
+                                </Link>
+                            </div>
+                        </CardContent>
+                    </Card>
                 </div>
 
                 <!-- Third Row -->
@@ -195,7 +193,7 @@ const MortalityIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height
                         <CardHeader>
                             <CardTitle class="flex items-center gap-3 text-lg">
                                 <div v-html="MortalityIcon" class="text-gray-600" />
-                                <span>Recent Mortality</span>
+                                <span>Recent Mortality (< 3mo)</span>
                             </CardTitle>
                             <CardDescription class="text-sm">
                                 Short-term mortality analysis
@@ -203,7 +201,7 @@ const MortalityIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height
                         </CardHeader>
                         <CardContent>
                             <div class="flex flex-col gap-4">
-                                <Link :href="route('packages.core.pplusmortality.patients', [project.project_id])">
+                                <Link :href="route('packages.core.enrolled.death3months', [project.project_id])">
                                 <Button
                                     class="w-full cursor-pointer bg-gradient-to-r from-gray-600 to-gray-700 text-white hover:from-gray-700 hover:to-gray-800">
                                     View Recent Mortality
