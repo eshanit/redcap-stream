@@ -6,31 +6,24 @@ use App\Http\Controllers\Controller;
 use App\Services\NCDPPlus\MortalityPatientsService;
 use Inertia\Inertia;
 
-class PPlusMortalityPatientsController extends Controller
+class PPlusMortalityPatientsControllerCopy extends Controller
 {
-    private MortalityPatientsService $mortalityPatientsService;
+
+      private MortalityPatientsService $mortalityPatientsService;
 
     public function __construct(MortalityPatientsService $mortalityPatientsService)
     {
         $this->mortalityPatientsService = $mortalityPatientsService;
     }
 
-  public function index()
-{
-    $project = $this->mortalityPatientsService->getProject();
-    $patients = $this->mortalityPatientsService->getAllMortalityPatients();
-    
-    // Compute summary and quarterly data
-    $summary = $this->mortalityPatientsService->computeSummaryFromPatients($patients);
-    $quarterlyData = $this->computeQuarterlyData($patients);
+    public function index()
+    {
+        $project = $this->mortalityPatientsService->getProject();
+        return Inertia::render('Customizations/NCDPPlus/CoreIndicators/PPlusMortalityPatients', [
+            'project' => $project,
+        ]);
+    }
 
-    return Inertia::render('Customizations/NCDPPlus/CoreIndicators/PPlusMortalityPatients', [
-        'project' => $project,
-        'patients' => $patients,
-        'summary' => $summary,
-        'quarterlyData' => $quarterlyData,
-    ]);
-}
     /** All Mortality Patients */
     public function allMortalityPatients()
     {
@@ -43,7 +36,7 @@ class PPlusMortalityPatientsController extends Controller
         ]);
     }
 
-    /** Individual disease methods with mortality dates */
+    /** Individual disease methods remain the same but will use the simplified service */
     public function type1Diabetes()
     {
         return $this->renderReport(
@@ -55,7 +48,7 @@ class PPlusMortalityPatientsController extends Controller
         );
     }
 
-    /** Type II Diabetes */
+   /** Type II Diabetes */
     public function type2Diabetes()
     {
         return $this->renderReport(
@@ -76,7 +69,7 @@ class PPlusMortalityPatientsController extends Controller
             ['3', '5'],
             ['db_visit_date', 'next_appo_date', 'dm_outcome', 'db_diagnosis'],
             'UnspecifiedDiabetes',
-            'patients'
+            'LTFUPatientsData'
         );
     }
 
@@ -175,9 +168,8 @@ class PPlusMortalityPatientsController extends Controller
             'ChronicLiverDisease'
         );
     }
-
     /**
-     * Render report using service - UPDATED to include mortality dates
+     * Render report using service - this method stays the same
      */
     private function renderReport(
         string $diagnosisField,
@@ -232,58 +224,7 @@ class PPlusMortalityPatientsController extends Controller
     }
 
     /**
-     * Get quarterly mortality data
-     */
-    public function getQuarterlyData()
-    {
-        $patients = $this->mortalityPatientsService->getAllMortalityPatients();
-        $quarterlyData = $this->computeQuarterlyData($patients);
-        
-        return response()->json($quarterlyData);
-    }
-
-    /**
-     * Compute quarterly data from patients
-     */
-    private function computeQuarterlyData($patients)
-    {
-        $quarters = [];
-        
-        foreach ($patients as $patient) {
-            if (empty($patient['mortality_date'])) {
-                continue;
-            }
-            
-            $date = \Carbon\Carbon::parse($patient['mortality_date']);
-            $year = $date->year;
-            $quarter = ceil($date->month / 3);
-            $quarterKey = "Q{$quarter} {$year}";
-            
-            if (!isset($quarters[$quarterKey])) {
-                $quarters[$quarterKey] = [
-                    'quarter' => $quarterKey,
-                    'total' => 0,
-                    'by_disease' => []
-                ];
-            }
-            
-            $quarters[$quarterKey]['total']++;
-            
-            $diseaseName = $patient['disease_name'] ?? 'Unknown';
-            if (!isset($quarters[$quarterKey]['by_disease'][$diseaseName])) {
-                $quarters[$quarterKey]['by_disease'][$diseaseName] = 0;
-            }
-            $quarters[$quarterKey]['by_disease'][$diseaseName]++;
-        }
-        
-        // Sort quarters chronologically
-        ksort($quarters);
-        
-        return array_values($quarters);
-    }
-
-    /**
-     * Configuration for different disease types - FIXED typo in 'unspecified_diabetes'
+     * Configuration for different disease types
      */
     private function getDiseaseConfig(string $diseaseType): ?array
     {
@@ -300,7 +241,7 @@ class PPlusMortalityPatientsController extends Controller
                 'diagnosis_values' => ['2'],
                 'visit_fields' => ['db_visit_date', 'next_appo_date', 'dm_outcome', 'db_diagnosis'],
             ],
-            'unspecified_diabetes' => [ // Fixed typo from 'uspecified_diabetes'
+            'uspecified_diabetes' => [
                 'diagnosis_field' => 'db_diagnosis',
                 'outcome_field' => 'dm_outcome',
                 'diagnosis_values' => ['3', '5'],
@@ -358,4 +299,5 @@ class PPlusMortalityPatientsController extends Controller
 
         return $configs[$diseaseType] ?? null;
     }
+
 }

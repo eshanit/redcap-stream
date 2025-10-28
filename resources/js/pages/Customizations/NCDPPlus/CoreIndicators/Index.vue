@@ -122,7 +122,7 @@ const MortalityIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height
                         <CardHeader>
                             <CardTitle class="flex items-center gap-3 text-lg">
                                 <div v-html="LTFUIcon" class="text-red-500" />
-                                <span>Recent LTFU </span>
+                                <span>LTFU</span>
                             </CardTitle>
                             <CardDescription class="text-sm">
                                 Lost to follow-up analysis
@@ -139,9 +139,30 @@ const MortalityIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height
                             </div>
                         </CardContent>
                     </Card>
+                           <Card class="hover:shadow-lg transition-shadow duration-200">
+                        <CardHeader>
+                            <CardTitle class="flex items-center gap-3 text-lg">
+                                <div v-html="MortalityIcon" class="text-gray-600" />
+                                <span>Mortality</span>
+                            </CardTitle>
+                            <CardDescription class="text-sm">
+                                Mortality analysis
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div class="flex flex-col gap-4">
+                                <Link :href="route('packages.core.pplusmortality.patients', [project.project_id])">
+                                <Button
+                                    class="w-full cursor-pointer bg-gradient-to-r from-gray-600 to-gray-700 text-white hover:from-gray-700 hover:to-gray-800">
+                                    View Recent Mortality
+                                </Button>
+                                </Link>
+                            </div>
+                        </CardContent>
+                    </Card>
 
                                   <!-- Active Patients Card -->
-                    <Card class="hover:shadow-lg transition-shadow duration-200">
+                    <!-- <Card class="hover:shadow-lg transition-shadow duration-200">
                         <CardHeader>
                             <CardTitle class="flex items-center gap-3 text-lg">
                                 <div v-html="ActivePatientsIcon" class="text-green-500" />
@@ -161,14 +182,14 @@ const MortalityIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height
                                 </Link>
                             </div>
                         </CardContent>
-                    </Card>
+                    </Card> -->
 
                 </div>
 
                 <!-- Third Row -->
                 <div class="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                     <!-- Deceased Patients Card -->
-                    <Card class="hover:shadow-lg transition-shadow duration-200">
+                    <!-- <Card class="hover:shadow-lg transition-shadow duration-200">
                         <CardHeader>
                             <CardTitle class="flex items-center gap-3 text-lg">
                                 <div v-html="DeceasedIcon" class="text-purple-500" />
@@ -188,17 +209,17 @@ const MortalityIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height
                                 </Link>
                             </div>
                         </CardContent>
-                    </Card>
+                    </Card> -->
 
                     <!-- Recent Mortality Card -->
-                    <Card class="hover:shadow-lg transition-shadow duration-200">
+                    <!-- <Card class="hover:shadow-lg transition-shadow duration-200">
                         <CardHeader>
                             <CardTitle class="flex items-center gap-3 text-lg">
                                 <div v-html="MortalityIcon" class="text-gray-600" />
-                                <span>Recent Mortality</span>
+                                <span>Mortality II</span>
                             </CardTitle>
                             <CardDescription class="text-sm">
-                                Short-term mortality analysis
+                                Mortality analysis
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
@@ -211,7 +232,7 @@ const MortalityIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height
                                 </Link>
                             </div>
                         </CardContent>
-                    </Card>
+                    </Card> -->
 
                     
                 </div>

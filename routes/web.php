@@ -92,6 +92,9 @@ Route::middleware('auth')->group(function () {
         Route::get('project/{project_id}/core_indicators/nppltfupatients/all/summary', [CoreIndicatorsControllers\PPlusLTFUPatientsController::class, 'getAllSummary']);
 
         // Mortality Patients
+
+        // ... add all other disease routes
+
         Route::get('project/{project_id}/core_indicators/nppmortalitypatients', [CoreIndicatorsControllers\PPlusMortalityPatientsController::class, 'index'])->name('core.pplusmortality.patients');
         Route::get('project/{project_id}/core_indicators/nppmortalitypatients/diabetes_1', [CoreIndicatorsControllers\PPlusMortalityPatientsController::class, 'type1Diabetes'])->name('core.pplusmortality.type1Diabetes');
         Route::get('project/{project_id}/core_indicators/nppmortalitypatients/diabetes_2', [CoreIndicatorsControllers\PPlusMortalityPatientsController::class, 'type2Diabetes'])->name('core.pplusmortality.type2Diabetes');
@@ -106,8 +109,7 @@ Route::middleware('auth')->group(function () {
         Route::get('project/{project_id}/core_indicators/nppmortalitypatients/chronic_liver', [CoreIndicatorsControllers\PPlusMortalityPatientsController::class, 'chronicLiverDisease'])->name('core.pplusmortality.chronic_liver');
         Route::get('project/{project_id}/core_indicators/nppmortalitypatients/all', [CoreIndicatorsControllers\PPlusMortalityPatientsController::class, 'allMortalityPatients']);
         Route::get('project/{project_id}/core_indicators/nppmortalitypatients/all/summary', [CoreIndicatorsControllers\PPlusMortalityPatientsController::class, 'getAllSummary']);
-
-
+        Route::get('project/{project_id}/core_indicators/nppmortalitypatients/{diseaseType}/summary', [CoreIndicatorsControllers\PPlusMortalityPatientsController::class, 'getSummary']);
 
         // Active Patients
         Route::get('project/{project_id}/core_indicators/{status}/{condition}/all/data', CoreIndicatorsControllers\GetAllDataController::class)->name('core.all.data');
@@ -130,7 +132,6 @@ Route::middleware('auth')->group(function () {
         Route::get('project/{project_id}/delivery-indicators-1/hiv-health', ServiceBasedIndicatorsControllers\HIVHealthController::class)->name('service_based_indicators.hiv_health');
         // AHP PreP Health
         Route::get('project/{project_id}/delivery-indicators-1/prep-health', ServiceBasedIndicatorsControllers\PrEPHealthController::class)->name('service_based_indicators.prep_health');
-
 
         // AHP Data Summary Report
         Route::get('project/{project_id}/general_data_overview', \App\Http\Controllers\CustomizedPackages\AHP\DataSummary\DataReportController::class)->name('data_summary.report');

@@ -3,47 +3,40 @@
 namespace App\Http\Controllers\CustomizedPackages\NCDPPlus\CoreIndicators;
 
 use App\Http\Controllers\Controller;
-use App\Services\NCDPPlus\MortalityPatientsService;
-use Inertia\Inertia;
+use App\Services\NCDPPlus\TransferedPatientsService;
+use Illuminate\Http\Request;
 
-class PPlusMortalityPatientsController extends Controller
+class PPlusTransferedPatientsController extends Controller
 {
-    private MortalityPatientsService $mortalityPatientsService;
 
-    public function __construct(MortalityPatientsService $mortalityPatientsService)
+      private TransferedPatientsService $transferedPatientsService;
+
+    public function __construct(TransferedPatientsService $transferedPatientsService)
     {
-        $this->mortalityPatientsService = $mortalityPatientsService;
+        $this->transferedPatientsService = $transferedPatientsService;
     }
 
-  public function index()
-{
-    $project = $this->mortalityPatientsService->getProject();
-    $patients = $this->mortalityPatientsService->getAllMortalityPatients();
-    
-    // Compute summary and quarterly data
-    $summary = $this->mortalityPatientsService->computeSummaryFromPatients($patients);
-    $quarterlyData = $this->computeQuarterlyData($patients);
-
-    return Inertia::render('Customizations/NCDPPlus/CoreIndicators/PPlusMortalityPatients', [
-        'project' => $project,
-        'patients' => $patients,
-        'summary' => $summary,
-        'quarterlyData' => $quarterlyData,
-    ]);
-}
-    /** All Mortality Patients */
-    public function allMortalityPatients()
+    public function index()
     {
-        $project = $this->mortalityPatientsService->getProject();
-        $patients = $this->mortalityPatientsService->getAllMortalityPatients();
+        $project = $this->transferedPatientsService->getProject();
+        return Inertia::render('Customizations/NCDPPlus/CoreIndicators/PPlusTransferedPatients', [
+            'project' => $project,
+        ]);
+    }
 
-        return Inertia::render('Customizations/NCDPPlus/CoreIndicators/Reports/Mortality/AllMortalityPatients', [
+    /** All Transfered Patients */
+    public function allTransferedPatients()
+    {
+        $project = $this->transferedPatientsService->getProject();
+        $patients = $this->transferedPatientsService->getAllTransferedPatients();
+
+        return Inertia::render('Customizations/NCDPPlus/CoreIndicators/Reports/Transfered/AllTransferedPatients', [
             'project' => $project,
             'patients' => $patients,
         ]);
     }
 
-    /** Individual disease methods with mortality dates */
+    /** Individual disease methods remain the same but will use the simplified service */
     public function type1Diabetes()
     {
         return $this->renderReport(
@@ -55,7 +48,7 @@ class PPlusMortalityPatientsController extends Controller
         );
     }
 
-    /** Type II Diabetes */
+   /** Type II Diabetes */
     public function type2Diabetes()
     {
         return $this->renderReport(
@@ -76,7 +69,7 @@ class PPlusMortalityPatientsController extends Controller
             ['3', '5'],
             ['db_visit_date', 'next_appo_date', 'dm_outcome', 'db_diagnosis'],
             'UnspecifiedDiabetes',
-            'patients'
+            'LTFUPatientsData'
         );
     }
 
@@ -171,13 +164,12 @@ class PPlusMortalityPatientsController extends Controller
             'liver_main_diagnosis',
             'liver_outcome',
             ['1', '2'],
-            ['liver_outcome_date', 'liver_next_appo_date', 'liver_outcome', 'liver_main_diagnosis'],
+            ['liver_date', 'liver_next_appo_date', 'liver_outcome', 'liver_main_diagnosis'],
             'ChronicLiverDisease'
         );
     }
-
     /**
-     * Render report using service - UPDATED to include mortality dates
+     * Render report using service - this method stays the same
      */
     private function renderReport(
         string $diagnosisField,
@@ -187,26 +179,26 @@ class PPlusMortalityPatientsController extends Controller
         string $viewName,
         string $patientsVariable = 'patients'
     ) {
-        $project = $this->mortalityPatientsService->getProject();
-        $patients = $this->mortalityPatientsService->getMortalityPatients(
+        $project = $this->transferedPatientsService->getProject();
+        $patients = $this->transferedPatientsService->getTransferedPatients(
             $diagnosisField,
             $outcomeField,
             $diagnosisValues,
             $visitFields
         );
 
-        return Inertia::render("Customizations/NCDPPlus/CoreIndicators/Reports/Mortality/{$viewName}", [
+        return Inertia::render("Customizations/NCDPPlus/CoreIndicators/Reports/Transfered/{$viewName}", [
             'project' => $project,
             $patientsVariable => $patients,
         ]);
     }
 
     /**
-     * Get summary statistics for all Mortality patients
+     * Get summary statistics for all Transfered patients
      */
     public function getAllSummary()
     {
-        $summary = $this->mortalityPatientsService->getAllMortalitySummary();
+        $summary = $this->transferedPatientsService->getAllTransferedSummary();
         return response()->json($summary);
     }
 
@@ -221,7 +213,7 @@ class PPlusMortalityPatientsController extends Controller
             return response()->json(['error' => 'Disease type not found'], 404);
         }
 
-        $summary = $this->mortalityPatientsService->getMortalityPatientsSummary(
+        $summary = $this->transferedPatientsService->getTransferedPatientsSummary(
             $config['diagnosis_field'],
             $config['outcome_field'],
             $config['diagnosis_values'],
@@ -232,58 +224,7 @@ class PPlusMortalityPatientsController extends Controller
     }
 
     /**
-     * Get quarterly mortality data
-     */
-    public function getQuarterlyData()
-    {
-        $patients = $this->mortalityPatientsService->getAllMortalityPatients();
-        $quarterlyData = $this->computeQuarterlyData($patients);
-        
-        return response()->json($quarterlyData);
-    }
-
-    /**
-     * Compute quarterly data from patients
-     */
-    private function computeQuarterlyData($patients)
-    {
-        $quarters = [];
-        
-        foreach ($patients as $patient) {
-            if (empty($patient['mortality_date'])) {
-                continue;
-            }
-            
-            $date = \Carbon\Carbon::parse($patient['mortality_date']);
-            $year = $date->year;
-            $quarter = ceil($date->month / 3);
-            $quarterKey = "Q{$quarter} {$year}";
-            
-            if (!isset($quarters[$quarterKey])) {
-                $quarters[$quarterKey] = [
-                    'quarter' => $quarterKey,
-                    'total' => 0,
-                    'by_disease' => []
-                ];
-            }
-            
-            $quarters[$quarterKey]['total']++;
-            
-            $diseaseName = $patient['disease_name'] ?? 'Unknown';
-            if (!isset($quarters[$quarterKey]['by_disease'][$diseaseName])) {
-                $quarters[$quarterKey]['by_disease'][$diseaseName] = 0;
-            }
-            $quarters[$quarterKey]['by_disease'][$diseaseName]++;
-        }
-        
-        // Sort quarters chronologically
-        ksort($quarters);
-        
-        return array_values($quarters);
-    }
-
-    /**
-     * Configuration for different disease types - FIXED typo in 'unspecified_diabetes'
+     * Configuration for different disease types
      */
     private function getDiseaseConfig(string $diseaseType): ?array
     {
@@ -300,7 +241,7 @@ class PPlusMortalityPatientsController extends Controller
                 'diagnosis_values' => ['2'],
                 'visit_fields' => ['db_visit_date', 'next_appo_date', 'dm_outcome', 'db_diagnosis'],
             ],
-            'unspecified_diabetes' => [ // Fixed typo from 'uspecified_diabetes'
+            'uspecified_diabetes' => [
                 'diagnosis_field' => 'db_diagnosis',
                 'outcome_field' => 'dm_outcome',
                 'diagnosis_values' => ['3', '5'],
@@ -310,37 +251,37 @@ class PPlusMortalityPatientsController extends Controller
                 'diagnosis_field' => 'card_diagnosis',
                 'outcome_field' => 'card_outcome',
                 'diagnosis_values' => ['2'],
-                'visit_fields' => ['card_death_date', 'card_next_appo_date', 'card_outcome', 'card_diagnosis'],
+                'visit_fields' => ['dateov_visit', 'card_next_appo_date', 'card_outcome', 'card_diagnosis'],
             ],
             'congenital' => [
                 'diagnosis_field' => 'card_diagnosis',
                 'outcome_field' => 'card_outcome',
                 'diagnosis_values' => ['5'],
-                'visit_fields' => ['card_death_date', 'card_next_appo_date', 'card_outcome', 'card_diagnosis'],
+                'visit_fields' => ['dateov_visit', 'card_next_appo_date', 'card_outcome', 'card_diagnosis'],
             ],
             'heart_failure' => [
                 'diagnosis_field' => 'card_diagnosis',
                 'outcome_field' => 'card_outcome',
                 'diagnosis_values' => ['1', '6'],
-                'visit_fields' => ['card_death_date', 'card_next_appo_date', 'card_outcome', 'card_diagnosis'],
+                'visit_fields' => ['dateov_visit', 'card_next_appo_date', 'card_outcome', 'card_diagnosis'],
             ],
             'other_cardiac' => [
                 'diagnosis_field' => 'card_diagnosis',
                 'outcome_field' => 'card_outcome',
                 'diagnosis_values' => ['2', '3', '4', '7', '8', '9', '10', '11'],
-                'visit_fields' => ['card_death_date', 'card_next_appo_date', 'card_outcome', 'card_diagnosis'],
+                'visit_fields' => ['dateov_visit', 'card_next_appo_date', 'card_outcome', 'card_diagnosis'],
             ],
             'sickle_cell' => [
                 'diagnosis_field' => 'scd_diagnosis',
                 'outcome_field' => 'scd_outcome',
                 'diagnosis_values' => ['1'],
-                'visit_fields' => ['scd_outcome_date', 'scd_appo_date', 'scd_outcome', 'scd_diagnosis'],
+                'visit_fields' => ['scd_visit_date', 'scd_appo_date', 'scd_outcome', 'scd_diagnosis'],
             ],
             'chronic_respiratory' => [
                 'diagnosis_field' => 'main_diagnosis',
                 'outcome_field' => 'outcome',
                 'diagnosis_values' => ['1', '2', '3'],
-                'visit_fields' => ['when', 'nxt_appo_date', 'outcome', 'main_diagnosis'],
+                'visit_fields' => ['res_visit_date', 'nxt_appo_date', 'outcome', 'main_diagnosis'],
             ],
             'chronic_kidney' => [
                 'diagnosis_field' => 'pat_main_diagnosis',
@@ -352,10 +293,12 @@ class PPlusMortalityPatientsController extends Controller
                 'diagnosis_field' => 'liver_main_diagnosis',
                 'outcome_field' => 'liver_outcome',
                 'diagnosis_values' => ['1', '2'],
-                'visit_fields' => ['liver_outcome_date', 'liver_next_appo_date', 'liver_outcome', 'liver_main_diagnosis'],
+                'visit_fields' => ['liver_date', 'liver_next_appo_date', 'liver_outcome', 'liver_main_diagnosis'],
             ],
         ];
 
         return $configs[$diseaseType] ?? null;
     }
+
 }
+

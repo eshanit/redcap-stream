@@ -6,7 +6,7 @@ use App\Models\Project;
 use App\Models\ProjectData3;
 use Illuminate\Support\Collection;
 
-class MortalityPatientsService
+class TransferedPatientsService
 {
     const PROJECT_ID = 39;
     const DEMOGRAPHIC_FIELDS = ['gender_demo', 'facility_demo', 'age_demo'];
@@ -77,14 +77,14 @@ class MortalityPatientsService
     }
 
     /**
-     * Get ALL mortality patients (all diseases)
+     * Get ALL transfered patients (all diseases)
      */
-public function getAllMortalityPatients(): Collection
+public function getAllTransferedPatients(): Collection
 {
     // Define outcome date fields for each disease type
     $outcomeDateFields = [
         'db_visit_date' => 'diabetes',
-        'card_death_date' => 'cardiac',
+        'date_a' => 'cardiac',
         'scd_outcome_date' => 'sickle_cell',
         'when' => 'respiratory',
         'ckd_visit_date' => 'kidney',
@@ -164,8 +164,8 @@ public function getAllMortalityPatients(): Collection
             $patientData['disease_type'] = $this->determineDiseaseType($outcomeRecord, $patientData);
             $patientData['disease_name'] = $this->getDiseaseDisplayName($patientData['disease_type']);
             
-            // Add mortality date based on disease type
-            $patientData['mortality_date'] = $this->getMortalityDate($patientData, $outcomeDateFields);
+            // Add transfered date based on disease type
+            $patientData['transfered_date'] = $this->getTransferedDate($patientData, $outcomeDateFields);
             
             $allPatients->push($patientData);
         }
@@ -177,32 +177,9 @@ public function getAllMortalityPatients(): Collection
 }
 
 /**
- * Compute summary statistics from a collection of patients
+ * Get transfered date based on disease type and outcome date fields
  */
-public function computeSummaryFromPatients(Collection $patients): array
-{
-    if ($patients->isEmpty()) {
-        return [
-            'total_patients' => 0,
-            'by_gender' => collect(),
-            'by_facility' => collect(),
-            'by_disease' => collect(),
-            'average_age' => 0,
-        ];
-    }
-
-    return [
-        'total_patients' => $patients->count(),
-        'by_gender' => $patients->groupBy('gender_demo')->map->count(),
-        'by_facility' => $patients->groupBy('facility_demo')->map->count(),
-        'by_disease' => $patients->groupBy('disease_name')->map->count(),
-        'average_age' => $patients->where('age_demo', '!=', '')->average('age_demo'),
-    ];
-}
-/**
- * Get mortality date based on disease type and outcome date fields
- */
-private function getMortalityDate(array $patientData, array $outcomeDateFields): ?string
+private function getTransferedDate(array $patientData, array $outcomeDateFields): ?string
 {
     $diseaseCategory = $patientData['disease_type'] ?? '';
     
@@ -233,61 +210,47 @@ private function getMortalityDate(array $patientData, array $outcomeDateFields):
     return null;
 }
     /**
-     * Get mortality patients for a specific disease type
+     * Get transfered patients for a specific disease type
      */
-   // In MortalityPatientsService.php - update getMortalityPatients method
-
-public function getMortalityPatients(
-    string $diagnosisField,
-    string $outcomeField,
-    array $diagnosisValues,
-    array $visitFields
-): Collection {
-    // Define outcome date fields for each disease type
-    $outcomeDateFields = [
-        'db_visit_date' => 'diabetes',
-        'card_death_date' => 'cardiac',
-        'scd_outcome_date' => 'sickle_cell',
-        'when' => 'respiratory',
-        'ckd_visit_date' => 'kidney',
-        'liver_outcome_date' => 'liver'
-    ];
-
-    // Find death outcomes for this specific outcome field
-    $deathOutcomes = ProjectData3::query()
-        ->where('project_id', self::PROJECT_ID)
-        ->where('field_name', $outcomeField)
-        ->where('value', '5')
-        ->get();
-
-    if ($deathOutcomes->isEmpty()) {
-        return collect([]);
-    }
-
-    $patients = collect();
-
-    foreach ($deathOutcomes as $outcomeRecord) {
-        // Get the diagnosis for this record and instance
-        $diagnosis = ProjectData3::query()
+    public function getTransferedPatients(
+        string $diagnosisField,
+        string $outcomeField,
+        array $diagnosisValues,
+        array $visitFields
+    ): Collection {
+        // Find death outcomes for this specific outcome field
+        $deathOutcomes = ProjectData3::query()
             ->where('project_id', self::PROJECT_ID)
-            ->where('record', $outcomeRecord->record)
-            //->where('instance', $outcomeRecord->instance)
-            ->where('field_name', $diagnosisField)
-            ->whereIn('value', $diagnosisValues)
-            ->first();
+            ->where('field_name', $outcomeField)
+            ->where('value', '5')
+            ->get();
 
-        if ($diagnosis) {
-            $patientData = $this->buildPatientData($outcomeRecord, $visitFields);
-            if ($patientData) {
-                // Add mortality date
-                $patientData['mortality_date'] = $this->getMortalityDate($patientData, $outcomeDateFields);
-                $patients->push($patientData);
+        if ($deathOutcomes->isEmpty()) {
+            return collect([]);
+        }
+
+        $patients = collect();
+
+        foreach ($deathOutcomes as $outcomeRecord) {
+            // Get the diagnosis for this record and instance
+            $diagnosis = ProjectData3::query()
+                ->where('project_id', self::PROJECT_ID)
+                ->where('record', $outcomeRecord->record)
+               // ->where('instance', $outcomeRecord->instance)
+                ->where('field_name', $diagnosisField)
+                ->whereIn('value', $diagnosisValues)
+                ->first();
+
+            if ($diagnosis) {
+                $patientData = $this->buildPatientData($outcomeRecord, $visitFields);
+                if ($patientData) {
+                    $patients->push($patientData);
+                }
             }
         }
-    }
 
-    return $patients;
-}
+        return $patients;
+    }
 
     /**
      * Build patient data from outcome record - FIXED to match ActivePatients structure
@@ -414,24 +377,41 @@ public function getMortalityPatients(
     }
 
     /**
-     * Get summary statistics for all mortality patients
+     * Get summary statistics for all transfered patients
      */
- public function getAllMortalitySummary(): array
-{
-    $patients = $this->getAllMortalityPatients();
-    return $this->computeSummaryFromPatients($patients);
-}
+    public function getAllTransferedSummary(): array
+    {
+        $patients = $this->getAllTransferedPatients();
+
+        if ($patients->isEmpty()) {
+            return [
+                'total_patients' => 0,
+                'by_gender' => collect(),
+                'by_facility' => collect(),
+                'by_disease' => collect(),
+                'average_age' => 0,
+            ];
+        }
+
+        return [
+            'total_patients' => $patients->count(),
+            'by_gender' => $patients->groupBy('gender_demo')->map->count(),
+            'by_facility' => $patients->groupBy('facility_demo')->map->count(),
+            'by_disease' => $patients->groupBy('disease_name')->map->count(),
+            'average_age' => $patients->where('age_demo', '!=', '')->average('age_demo'),
+        ];
+    }
 
     /**
      * Get summary for specific disease type
      */
-    public function getMortalityPatientsSummary(
+    public function getTransferedPatientsSummary(
         string $diagnosisField,
         string $outcomeField,
         array $diagnosisValues,
         array $visitFields
     ): array {
-        $patients = $this->getMortalityPatients($diagnosisField, $outcomeField, $diagnosisValues, $visitFields);
+        $patients = $this->getTransferedPatients($diagnosisField, $outcomeField, $diagnosisValues, $visitFields);
 
         if ($patients->isEmpty()) {
             return [
