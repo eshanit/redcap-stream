@@ -56,9 +56,9 @@ const breadcrumbs: BreadcrumbItem[] = [
       <Heading title="Mortality Patients Indicators"
         description="Registered Mortality Patients per disease/condition aggregated per quarter. Rheumatic Heart Disease"
         class="pt-5" />
-        <pre>
+        <!-- <pre>
           {{ patients }}
-        </pre>
+        </pre> -->
       <RheumaticPatientPPlusChart :active-patients-data="patients" />
     </div>
   </AppLayout>
