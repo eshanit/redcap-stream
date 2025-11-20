@@ -55,7 +55,7 @@ const breadcrumbs: BreadcrumbItem[] = [
     <div class="flex h-full flex-1 flex-col gap-6 rounded-xl p-6">
       <Heading 
         title="All LTFU Patients" 
-        description="Comprehensive overview of all active patients across all disease conditions aggregated per quarter and facility."
+        description="Comprehensive overview of all LTFU patients across all disease conditions aggregated per quarter and facility."
         class="pt-5" 
       />
       <AllLTFUPatientsChart :patients-data="patients" condition="LTFU" />

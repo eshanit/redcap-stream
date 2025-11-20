@@ -38,8 +38,8 @@ const breadcrumbs: BreadcrumbItem[] = [
     href: '/packages/project/' + props.project.project_id + '/core_indicators',
   },
   {
-    title: 'Active Patients',
-    href: '/packages/project/' + props.project.project_id + '/core_indicators/nppactivepatients',
+    title: 'LTFU Patients',
+    href: '/packages/project/' + props.project.project_id + '/core_indicators/nppltfupatients',
   },
   {
     title: 'Chronic Liver Disease',
@@ -54,7 +54,7 @@ const breadcrumbs: BreadcrumbItem[] = [
   <AppLayout :breadcrumbs="breadcrumbs">
     <div class="flex h-full flex-1 flex-col gap-6 rounded-xl p-6">
       <Heading title="Active Patients Indicators"
-        description="Registered Active Patients per disease/condition aggregated per quarter. Chronic Liver Disease"
+        description="Registered LTFU Patients per disease/condition aggregated per quarter. Chronic Liver Disease"
         class="pt-5" />
       <CLDPPlusChart :active-patients-data="patients" />
     </div>

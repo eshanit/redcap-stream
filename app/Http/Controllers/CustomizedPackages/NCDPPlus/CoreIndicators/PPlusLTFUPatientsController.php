@@ -108,6 +108,18 @@ class PPlusLTFUPatientsController extends Controller
         );
     }
 
+        /** Epilepsy */
+    public function epilepsy()
+    {
+        return $this->renderReport(
+            'pat_main_diagnosis',
+            'ep_outcome',
+            ['3'],
+            ['ep_visit_date', 'ep_next_appo_date', 'ep_outcome', 'pat_main_diagnosis'],
+            'Epilepsy'
+        );
+    }
+
     /** Sickle Cell */
     public function sickleCell()
     {
@@ -277,7 +289,7 @@ class PPlusLTFUPatientsController extends Controller
         return response()->json($totalSummary);
     }
 
-    /**
+        /**
      * Get all disease configurations
      */
     private function getAllDiseaseConfigs(): array
@@ -337,6 +349,12 @@ class PPlusLTFUPatientsController extends Controller
                 'diagnosis_values' => ['1', '2', '3'],
                 'visit_fields' => ['res_visit_date', 'nxt_appo_date', 'outcome', 'main_diagnosis'],
             ],
+             'epilepsy' => [
+                'diagnosis_field' => 'pat_main_diagnosis',
+                'outcome_field' => 'ep_outcome',
+                'diagnosis_values' => ['3'],
+                'visit_fields' => ['ep_visit_date', 'ep_next_appo_date', 'ep_outcome', 'pat_main_diagnosis'],
+            ],
             'chronic_kidney' => [
                 'diagnosis_field' => 'pat_main_diagnosis',
                 'outcome_field' => 'ckd_outcome',
@@ -366,6 +384,7 @@ class PPlusLTFUPatientsController extends Controller
             'heart_failure' => 'Heart Failure',
             'other_cardiac' => 'Other Cardiac Diseases',
             'sickle_cell' => 'Sickle Cell Disease',
+            'epilepsy' => 'Epilepsy',
             'chronic_respiratory' => 'Chronic Respiratory Disease',
             'chronic_kidney' => 'Chronic Kidney Disease',
             'chronic_liver' => 'Chronic Liver Disease',
@@ -385,7 +404,7 @@ class PPlusLTFUPatientsController extends Controller
             return response()->json(['error' => 'Disease type not found'], 404);
         }
 
-        $summary = $this->LTFUPatientsService->getLTFUPatientsSummary(
+        $summary = $this->activePatientsService->getActivePatientsSummary(
             $config['diagnosis_field'],
             $config['outcome_field'],
             $config['diagnosis_values'],
@@ -448,6 +467,12 @@ class PPlusLTFUPatientsController extends Controller
                 'outcome_field' => 'scd_outcome',
                 'diagnosis_values' => ['1'],
                 'visit_fields' => ['scd_visit_date', 'scd_appo_date', 'scd_outcome', 'scd_diagnosis'],
+            ],
+             'epilepsy' => [
+                'diagnosis_field' => 'pat_main_diagnosis',
+                'outcome_field' => 'ep_outcome',
+                'diagnosis_values' => ['3'],
+                'visit_fields' => ['ep_visit_date', 'ep_next_appo_date', 'ep_outcome', 'pat_main_diagnosis'],
             ],
             'chronic_respiratory' => [
                 'diagnosis_field' => 'main_diagnosis',

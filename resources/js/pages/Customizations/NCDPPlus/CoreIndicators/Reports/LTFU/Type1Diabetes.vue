@@ -37,8 +37,8 @@ const breadcrumbs: BreadcrumbItem[] = [
     href: '/packages/project/' + props.project.project_id + '/core_indicators',
   },
   {
-    title: 'Active Patients',
-    href: '/packages/project/' + props.project.project_id + '/core_indicators/nppactivepatients',
+    title: 'LTFU Patients',
+    href: '/packages/project/' + props.project.project_id + '/core_indicators/nppltfupatients',
   },
   {
     title: 'Type 1 Diabetes',
@@ -60,7 +60,7 @@ const handleConditionClick = (condition: any) => {
   <AppLayout :breadcrumbs="breadcrumbs">
     <div class="flex h-full flex-1 flex-col gap-6 rounded-xl p-6">
       <Heading title="Active Patients Indicators"
-        description="Registered Active Patients per disease/condition aggregated per quarter. Type 1 Diabetes"
+        description="Registered LTFU Patients per disease/condition aggregated per quarter. Type 1 Diabetes"
         class="pt-5" />
       <ActiveType1PatientsChart :active-patients-data="patients" />
     </div>

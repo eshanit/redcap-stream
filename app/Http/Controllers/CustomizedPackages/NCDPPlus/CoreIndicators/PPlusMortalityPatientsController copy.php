@@ -168,6 +168,20 @@ class PPlusMortalityPatientsControllerCopy extends Controller
             'ChronicLiverDisease'
         );
     }
+
+    
+    /** Epilepsy */
+    public function epilepsy()
+    {
+        return $this->renderReport(
+            'pat_main_diagnosis',
+            'ep_outcome',
+            ['3'],
+            ['ep_visit_date', 'ep_next_appo_date', 'ep_outcome', 'pat_main_diagnosis'],
+            'Epilepsy'
+        );
+    }
+
     /**
      * Render report using service - this method stays the same
      */
@@ -276,6 +290,12 @@ class PPlusMortalityPatientsControllerCopy extends Controller
                 'outcome_field' => 'scd_outcome',
                 'diagnosis_values' => ['1'],
                 'visit_fields' => ['scd_outcome_date', 'scd_appo_date', 'scd_outcome', 'scd_diagnosis'],
+            ],
+              'epilepsy' => [
+                'diagnosis_field' => 'pat_main_diagnosis',
+                'outcome_field' => 'ep_outcome',
+                'diagnosis_values' => ['3'],
+                'visit_fields' => ['ep_visit_date', 'ep_next_appo_date', 'ep_outcome', 'pat_main_diagnosis'],
             ],
             'chronic_respiratory' => [
                 'diagnosis_field' => 'main_diagnosis',

@@ -5,7 +5,7 @@ import Heading from '@/components/Heading.vue';
 import { Head, router } from '@inertiajs/vue3';
 import { type BreadcrumbItem } from '@/types';
 import { type IProject } from '@/types/IProject';
-import CongenitalPPlusChart from '@/components/charts/apexcharts/ncdpplus/Heart/Congenital/PPlusChart.vue';
+import EpilepsyPPLusChart from '@/components/charts/apexcharts/ncdpplus/Epilepsy/PPlusChart.vue';
 import { computed } from 'vue';
 
 const props = defineProps<{
@@ -42,7 +42,7 @@ const breadcrumbs: BreadcrumbItem[] = [
     href: '/packages/project/' + props.project.project_id + '/core_indicators/nppltfupatients',
   },
   {
-    title: 'Congenital Heart Disease',
+    title: 'Epilepsy',
     href: ''
   }
 ];
@@ -54,9 +54,9 @@ const breadcrumbs: BreadcrumbItem[] = [
   <AppLayout :breadcrumbs="breadcrumbs">
     <div class="flex h-full flex-1 flex-col gap-6 rounded-xl p-6">
       <Heading title="Active Patients Indicators"
-        description="Registered LTFU Patients per disease/condition aggregated per quarter. Congenital Heart Disease"
+        description="Registered LTFU Patients per disease/condition aggregated per quarter. Epilepsy"
         class="pt-5" />
-      <CongenitalPPlusChart :active-patients-data="patients" />
+      <EpilepsyPPLusChart :active-patients-data="patients" />
     </div>
   </AppLayout>
 </template>

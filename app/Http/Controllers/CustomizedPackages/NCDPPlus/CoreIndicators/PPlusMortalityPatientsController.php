@@ -176,6 +176,20 @@ class PPlusMortalityPatientsController extends Controller
         );
     }
 
+    
+    /** Epilepsy */
+    public function epilepsy()
+    {
+        return $this->renderReport(
+            'pat_main_diagnosis',
+            'ep_outcome',
+            ['3'],
+            ['ep_visit_date', 'ep_next_appo_date', 'ep_outcome', 'pat_main_diagnosis'],
+            'Epilepsy'
+        );
+    }
+
+
     /**
      * Render report using service - UPDATED to include mortality dates
      */
@@ -354,6 +368,12 @@ class PPlusMortalityPatientsController extends Controller
                 'diagnosis_values' => ['1', '2'],
                 'visit_fields' => ['liver_outcome_date', 'liver_next_appo_date', 'liver_outcome', 'liver_main_diagnosis'],
             ],
+             'epilepsy' => [
+                'diagnosis_field' => 'pat_main_diagnosis',
+                'outcome_field' => 'ep_outcome',
+                'diagnosis_values' => ['3'],
+                'visit_fields' => ['ep_visit_date', 'ep_next_appo_date', 'ep_outcome', 'pat_main_diagnosis'],
+            ]
         ];
 
         return $configs[$diseaseType] ?? null;
