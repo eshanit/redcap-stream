@@ -1,22 +1,13 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import AppLayout from '@/layouts/AppLayout.vue';
-import Heading from '@/components/Heading.vue';
 import { Link } from '@inertiajs/vue3';
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card'
 import { type BreadcrumbItem } from '@/types';
 import { type IProject } from '@/types/IProject';
 import { Head } from '@inertiajs/vue3';
-import { Users, CalendarX2, PackageOpen, Binoculars } from 'lucide-vue-next';
-import DonutChart from '@/components/charts/chartjs/Donut.vue';
-import BarChart from '@/components/charts/chartjs/BarChart.vue';
-import GenderTable from '@/components/custom/tables/Gender.vue';
-import Button from '@/components/ui/button/Button.vue';
+import { Users, CalendarX2, PackageOpen, Binoculars, BarChart3, PieChart, Building, Activity } from 'lucide-vue-next';
+import ApexDonutChart from '@/components/charts/apexcharts/ncd/ApexDonutChart.vue';
+import ApexBarChart from '@/components/charts/apexcharts/ncd/ApexBarChart.vue';
 
 const props = defineProps<{
     project: IProject,
@@ -26,7 +17,6 @@ const props = defineProps<{
     lostToFollowUp: number
 }>()
 
-
 const breadcrumbs: BreadcrumbItem[] = [
     {
         title: 'Dashboard',
@@ -34,128 +24,302 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
     {
         title: props.project.app_title,
-        href: '/dashboard',
+        href: '#',
     },
 ];
+
+// Calculate percentage for lost to follow up
+const lostToFollowUpPercentage = props.respondentCount > 0 
+    ? ((props.lostToFollowUp / props.respondentCount) * 100).toFixed(2)
+    : '0.00';
+
+// Prepare gender data for chart
+const genderChartData = computed(() => [
+    props.respondentGender[1] || 0,
+    props.respondentGender[2] || 0
+]);
+
+const genderChartLabels = computed(() => ['Male', 'Female']);
 </script>
 
 <template>
-    <Head title="Project Dashboard" />
-
+    <Head :title="`${props.project.app_title} - Dashboard`" />
+    
     <AppLayout :breadcrumbs="breadcrumbs">
-        <div class="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
-            <Heading :title="props.project.app_title" :description="props.project.creation_time" class="pt-5" />
-            <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+        <div class="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 dark:from-slate-900 dark:to-slate-800">
+            <!-- Page Header -->
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <div class="mb-8">
+                    <!-- Header with Title and Stats -->
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                        <div class="space-y-2">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 bg-gradient-to-r from-red-500 to-orange-500 rounded-xl flex items-center justify-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h6a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd" />
+                                    </svg>
+                                </div>
+                                <h1 class="text-3xl lg:text-4xl font-bold text-slate-900 dark:text-white">
+                                    {{ props.project.app_title }}
+                                </h1>
+                            </div>
+                            <p class="text-slate-600 dark:text-slate-300">
+                                Project created on {{ props.project.creation_time }}
+                            </p>
+                        </div>
+                    </div>
 
-                <div class="col-span-1 md:col-span-3">
-                    <Card class="mb-5">
-                        <CardHeader>
-                            <CardTitle>Respondents</CardTitle>
-                            <CardDescription>Number of respondents in this project</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div class="flex gap-5">
-                                <Users class="ml-auto size-18" color="green" />
-                                <div class="text-sky-500 text-4xl font-semibold">
-                                    {{ props.respondentCount }}
+                    <!-- Project Stats -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <!-- Total Respondents Card -->
+                        <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-lg border border-slate-200 dark:border-slate-700">
+                            <div class="flex items-center justify-between mb-4">
+                                <div>
+                                    <p class="text-sm text-slate-500 dark:text-slate-400">Total Respondents</p>
+                                    <p class="text-3xl font-bold text-slate-900 dark:text-white mt-1">
+                                        {{ respondentCount }}
+                                    </p>
+                                </div>
+                                <div class="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl flex items-center justify-center">
+                                    <Users class="h-6 w-6 text-white" />
                                 </div>
                             </div>
-                        </CardContent>
-                    </Card>
+                            <div class="text-sm text-slate-500 dark:text-slate-400">
+                                Active participants in study
+                            </div>
+                        </div>
 
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Lost To Follow Up</CardTitle>
-                            <CardDescription>Respondents who missed Next Review Date by at least 60 days</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div class="flex gap-5">
-                                <CalendarX2 class="ml-auto size-18" color="red" />
-                                <div class="flex gap-1">
-                                    <div class="text-sky-500 text-4xl font-semibold">
-                                        <!-- {{ lostToFollowUp }} --> 7
-                                    </div>
-                                    <div class="border-r" />
-                                    <div class="text-orange-500 text-xl font-semibold">
-                                        <!-- {{ (100 * lostToFollowUp / props.respondentCount).toFixed(2) }}% -->
-                                        17.9%
-                                    </div>
+                        <!-- Lost to Follow Up Card -->
+                        <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-lg border border-slate-200 dark:border-slate-700">
+                            <div class="flex items-center justify-between mb-4">
+                                <div>
+                                    <p class="text-sm text-slate-500 dark:text-slate-400">Lost to Follow Up</p>
+                                    <p class="text-3xl font-bold text-slate-900 dark:text-white mt-1">
+                                        7
+                                        <span class="text-lg text-red-500 ml-2">
+                                            (17.9%)
+                                        </span>
+                                    </p>
+                                </div>
+                                <div class="w-12 h-12 bg-gradient-to-r from-red-500 to-orange-500 rounded-xl flex items-center justify-center">
+                                    <CalendarX2 class="h-6 w-6 text-white" />
                                 </div>
                             </div>
-                        </CardContent>
-                    </Card>
-                </div>
-
-                <div class="col-span-1 md:col-span-4">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Respondents by gender</CardTitle>
-                            <CardDescription>Number of respondents broken down by gender</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div class="flex flex-col md:flex-row gap-5">
-                                <DonutChart :chart-data="Object.values(props.respondentGender)" :chart-labels="['Male', 'Female']" />
-                                <GenderTable :gender-data="{ 'Male': props.respondentGender[1], 'Female': props.respondentGender[2] }" />
+                            <div class="text-sm text-slate-500 dark:text-slate-400">
+                                Missed review by 60+ days
                             </div>
-                        </CardContent>
-                    </Card>
-                </div>
+                        </div>
 
-                <div class="col-span-1 md:col-span-5">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Respondents by facility</CardTitle>
-                            <CardDescription>Number of respondents broken down by facility</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <BarChart :chart-data="props.respondentFacility" />
-                        </CardContent>
-                    </Card>
-                </div>
-            </div>
+                        <!-- Gender Distribution Card -->
+                        <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-lg border border-slate-200 dark:border-slate-700">
+                            <div class="flex items-center justify-between mb-4">
+                                <div>
+                                    <p class="text-sm text-slate-500 dark:text-slate-400">Gender Distribution</p>
+                                    <p class="text-lg font-bold text-slate-900 dark:text-white mt-1">
+                                        {{ respondentGender[1] || 0 }} Male / {{ respondentGender[2] || 0 }} Female
+                                    </p>
+                                </div>
+                                <div class="w-12 h-12 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center">
+                                    <PieChart class="h-6 w-6 text-white" />
+                                </div>
+                            </div>
+                            <div class="text-sm text-slate-500 dark:text-slate-400">
+                                Breakdown by gender
+                            </div>
+                        </div>
 
-            <div class="pt-10 border-t" />
+                        <!-- Facilities Count Card -->
+                        <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-lg border border-slate-200 dark:border-slate-700">
+                            <div class="flex items-center justify-between mb-4">
+                                <div>
+                                    <p class="text-sm text-slate-500 dark:text-slate-400">Facilities</p>
+                                    <p class="text-3xl font-bold text-slate-900 dark:text-white mt-1">
+                                        {{ Object.keys(respondentFacility || {}).length }}
+                                    </p>
+                                </div>
+                                <div class="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
+                                    <Building class="h-6 w-6 text-white" />
+                                </div>
+                            </div>
+                            <div class="text-sm text-slate-500 dark:text-slate-400">
+                                Participating centers
+                            </div>
+                        </div>
+                    </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div id="packages" class="col-span-1">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Customized Packages</CardTitle>
-                            <CardDescription>This section contains customized analysis and reports for <span class="text-green-500">{{ props.project.app_title }}</span>. Click below to enter</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div class="flex gap-5">
-                                <PackageOpen class="ml-auto size-18" color="blue" />
-                                <Link :href="route('packages.dashboard', [project.project_id])">
-                                    <Button variant="outline" class="border border-orange-500 text-orange-500 bg-white cursor-pointer rounded w-full py-2 hover:bg-orange-500 hover:text-white">
-                                        Go to Customized Reports
-                                    </Button>
+                    <!-- Charts Section -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                        <!-- Gender Distribution Chart -->
+                        <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-lg border border-slate-200 dark:border-slate-700">
+                            <div class="mb-6">
+                                <div class="flex items-center gap-3 mb-2">
+                                    <div class="w-10 h-10 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center">
+                                        <PieChart class="h-5 w-5 text-white" />
+                                    </div>
+                                    <h3 class="text-xl font-bold text-slate-900 dark:text-white">Gender Distribution</h3>
+                                </div>
+                                <p class="text-slate-600 dark:text-slate-300 text-sm">
+                                    Number of respondents broken down by gender
+                                </p>
+                            </div>
+                            <div class="h-64 relative">
+                                <ApexDonutChart 
+                                    :chart-data="genderChartData" 
+                                    :chart-labels="genderChartLabels"
+                                    :chart-colors="['#3B82F6', '#EC4899']"
+                                    show-legend
+                                />
+                            </div>
+                            <div class="mt-6 grid grid-cols-2 gap-4">
+                                <div class="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
+                                    <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                                        {{ respondentGender[1] || 0 }}
+                                    </div>
+                                    <div class="text-sm text-slate-600 dark:text-slate-300">Male</div>
+                                </div>
+                                <div class="text-center p-3 bg-pink-50 dark:bg-pink-900/20 rounded-xl">
+                                    <div class="text-2xl font-bold text-pink-600 dark:text-pink-400">
+                                        {{ respondentGender[2] || 0 }}
+                                    </div>
+                                    <div class="text-sm text-slate-600 dark:text-slate-300">Female</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Facility Distribution Chart -->
+                        <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-lg border border-slate-200 dark:border-slate-700">
+                            <div class="mb-6">
+                                <div class="flex items-center gap-3 mb-2">
+                                    <div class="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
+                                        <BarChart3 class="h-5 w-5 text-white" />
+                                    </div>
+                                    <h3 class="text-xl font-bold text-slate-900 dark:text-white">Facility Distribution</h3>
+                                </div>
+                                <p class="text-slate-600 dark:text-slate-300 text-sm">
+                                    Number of respondents broken down by facility
+                                </p>
+                            </div>
+                            <div class="h-64 relative">
+                                <ApexBarChart 
+                                    :chart-data="props.respondentFacility"
+                                    :chart-colors="['#8B5CF6', '#EC4899', '#3B82F6', '#10B981', '#F59E0B']"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions Section -->
+                    <div class="mt-12 pt-8 border-t border-slate-200 dark:border-slate-700">
+                        <div class="text-center mb-8">
+                            <h3 class="text-2xl font-bold text-slate-900 dark:text-white mb-3">Project Tools</h3>
+                            <p class="text-slate-600 dark:text-slate-300 max-w-2xl mx-auto">
+                                Access specialized analysis tools and insights for your research project
+                            </p>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <!-- Customized Packages Card -->
+                            <div class="bg-gradient-to-br from-white to-red-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl p-6 shadow-lg border border-slate-200 dark:border-slate-700">
+                                <div class="flex items-start justify-between mb-6">
+                                    <div class="flex-1">
+                                        <div class="flex items-center gap-3 mb-3">
+                                            <div class="w-12 h-12 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center">
+                                                <PackageOpen class="h-6 w-6 text-white" />
+                                            </div>
+                                            <div>
+                                                <h3 class="text-xl font-bold text-slate-900 dark:text-white">Customized Packages</h3>
+                                                <p class="text-sm text-slate-600 dark:text-slate-300 mt-1">
+                                                    Advanced analysis and reports
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <p class="text-slate-600 dark:text-slate-300">
+                                            This section contains customized analysis and reports for 
+                                            <span class="font-semibold text-slate-900 dark:text-white">{{ props.project.app_title }}</span>. 
+                                            Generate comprehensive insights with specialized tools.
+                                        </p>
+                                    </div>
+                                </div>
+                                <Link 
+                                    :href="route('packages.dashboard', [project.project_id])"
+                                    class="inline-flex items-center justify-center gap-2 w-full px-6 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-medium hover:shadow-lg transition-all duration-300 hover:scale-[1.02]"
+                                >
+                                    <PackageOpen class="h-5 w-5" />
+                                    Go to Customized Reports
                                 </Link>
                             </div>
-                        </CardContent>
-                    </Card>
-                </div>
 
-                <div id="packages" class="col-span-1">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Questionnaire Insights</CardTitle>
-                            <CardDescription>View insights for each questionnaire item in <span class="text-green-500">{{ props.project.app_title }}</span>. Click below to enter</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div class="flex gap-5">
-                                <Binoculars class="ml-auto size-18" color="orange" />
-                                <Link :href="route(project.project_name+'.questionnaire.dashboard', [project.project_id])">
-                                    <Button variant="outline" class="border border-green-500 text-green-500 cursor-pointer bg-white rounded w-full py-2 hover:bg-green-500 hover:text-white">
-                                        Go to general field overviews
-                                    </Button>
+                            <!-- Questionnaire Insights Card -->
+                            <div class="bg-gradient-to-br from-white to-orange-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl p-6 shadow-lg border border-slate-200 dark:border-slate-700">
+                                <div class="flex items-start justify-between mb-6">
+                                    <div class="flex-1">
+                                        <div class="flex items-center gap-3 mb-3">
+                                            <div class="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl flex items-center justify-center">
+                                                <Binoculars class="h-6 w-6 text-white" />
+                                            </div>
+                                            <div>
+                                                <h3 class="text-xl font-bold text-slate-900 dark:text-white">Questionnaire Insights</h3>
+                                                <p class="text-sm text-slate-600 dark:text-slate-300 mt-1">
+                                                    Detailed field analysis
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <p class="text-slate-600 dark:text-slate-300">
+                                            View insights for each questionnaire item in 
+                                            <span class="font-semibold text-slate-900 dark:text-white">{{ props.project.app_title }}</span>. 
+                                            Analyze response patterns, distributions, and correlations.
+                                        </p>
+                                    </div>
+                                </div>
+                                <Link 
+                                    :href="route(project.project_name+'.questionnaire.dashboard', [project.project_id])"
+                                    class="inline-flex items-center justify-center gap-2 w-full px-6 py-3 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 text-white font-medium hover:shadow-lg transition-all duration-300 hover:scale-[1.02]"
+                                >
+                                    <Binoculars class="h-5 w-5" />
+                                    Go to Questionnaire Overview
                                 </Link>
                             </div>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
+
+                    <!-- Project Information Footer -->
+                    <div class="mt-12 pt-8 border-t border-slate-200 dark:border-slate-700">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div class="text-center">
+                                <div class="text-sm text-slate-500 dark:text-slate-400">Project ID</div>
+                                <div class="text-lg font-semibold text-slate-900 dark:text-white">{{ props.project.project_id }}</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="text-sm text-slate-500 dark:text-slate-400">Creation Date</div>
+                                <div class="text-lg font-semibold text-slate-900 dark:text-white">{{ props.project.creation_time }}</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="text-sm text-slate-500 dark:text-slate-400">Status</div>
+                                <div class="text-lg font-semibold text-green-600 dark:text-green-400">Active</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-
         </div>
     </AppLayout>
 </template>
+
+<style scoped>
+/* Ensure charts are responsive */
+:deep(.apexcharts-canvas) {
+    width: 100% !important;
+}
+
+/* Smooth transitions */
+* {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .h-64 {
+        height: 250px;
+    }
+}
+</style>

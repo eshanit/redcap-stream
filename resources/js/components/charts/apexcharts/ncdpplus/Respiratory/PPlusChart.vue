@@ -60,7 +60,7 @@ const chartOptions = ref({
   },
   yaxis: {
     title: {
-      text: 'Number of Active Patients',
+      text: 'Number of Patients',
     },
   },
   fill: {
@@ -68,11 +68,11 @@ const chartOptions = ref({
   },
   tooltip: {
     y: {
-      formatter: (val: number) => `${val} active patients`,
+      formatter: (val: number) => `${val} patients`,
     },
   },
   title: {
-    text: 'Active Chronic Respiratory Disease Patients by Quarter and Facility',
+    text: 'Chronic Respiratory Disease Patients by Quarter and Facility',
     align: 'center',
     style: {
       fontSize: '16px',
@@ -274,7 +274,7 @@ onMounted(() => {
     <!-- Summary Statistics -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
       <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
-        <h3 class="text-sm font-medium text-blue-800">Total Active Patients</h3>
+        <h3 class="text-sm font-medium text-blue-800">Total Patients</h3>
         <p class="text-2xl font-bold text-blue-600">{{ patientStats.totalPatients }}</p>
       </div>
       <div class="bg-green-50 p-4 rounded-lg border border-green-200">

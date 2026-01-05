@@ -146,7 +146,7 @@ const breadcrumbs: BreadcrumbItem[] = [
                                 <Binoculars class="ml-auto size-18" color="orange" />
                                 <Link :href="route(project.project_name+'.questionnaire.dashboard', [project.project_id])">
                                     <Button variant="outline" class="border border-green-500 text-green-500 bg-white rounded w-full py-2 hover:bg-green-500 hover:text-white cursor-pointer">
-                                        Let's get rolling
+                                        Go to general field overviews
                                     </Button>
                                 </Link>
                             </div>

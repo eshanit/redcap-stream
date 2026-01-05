@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, usePage } from '@inertiajs/vue3';
+
+const page = usePage();
 </script>
 
 <template>
@@ -19,7 +21,7 @@ import { Head, Link } from '@inertiajs/vue3';
                
                 <div class="flex items-center gap-3">
                     <Link
-                        v-if="$page.props.auth.user"
+                        v-if="page.props.auth.user"
                         :href="route('dashboard')"
                         class="px-6 py-2.5 rounded-xl bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-medium hover:shadow-lg transition-all duration-300 hover:scale-105"
                     >

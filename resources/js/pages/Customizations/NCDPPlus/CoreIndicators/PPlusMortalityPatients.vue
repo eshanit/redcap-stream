@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { router } from '@inertiajs/vue3'
+import { Head, router } from '@inertiajs/vue3';
+import AppLayout from '@/layouts/AppLayout.vue';
+import Heading from '@/components/Heading.vue';
+import { type BreadcrumbItem } from '@/types';
 import OverviewTab from '@/components/packages/ncdpplus/tabs/mortality/OverviewTab.vue'
 import AllPatientsTab from '@/components/packages/ncdpplus/tabs/mortality/AllPatientsTab.vue'
 import DiseaseBreakdownTab from '@/components/packages/ncdpplus/tabs/mortality/DiseaseBreakdownTab.vue'
@@ -46,6 +49,33 @@ const props = defineProps<{
 const activeTab = ref('overview')
 const loading = ref(false)
 
+const packageRoot = computed(() => {
+  return props.project.project_id == 39 ? 'ncd_pplus' : 'ncd';
+});
+
+const breadcrumbs: BreadcrumbItem[] = [
+  {
+    title: 'Dashboard',
+    href: '/dashboard',
+  },
+  {
+    title: props.project.app_title,
+    href: '/' + packageRoot.value + '/project/' + props.project.project_id,
+  },
+  {
+    title: 'Custom Packages',
+    href: '/packages/project/' + props.project.project_id + '/dashboard',
+  },
+  {
+    title: 'Core Indicators',
+    href: '/packages/project/' + props.project.project_id + '/core_indicators',
+  },
+  {
+    title: 'Mortality Patients',
+    href: ''
+  }
+];
+
 // Use props data or fallback to empty values
 const summaryData = computed(() => props.summary || {
   total_patients: 0,
@@ -72,6 +102,7 @@ console.log('Props received:', {
 })
 </script>
 <template>
+  <AppLayout :breadcrumbs="breadcrumbs">
   <div class="min-h-screen bg-gray-50 p-6">
     <div class="max-w-7xl mx-auto">
       <!-- Header -->
@@ -128,5 +159,6 @@ console.log('Props received:', {
       </div>
     </div>
   </div>
+  </AppLayout>
 </template>
 

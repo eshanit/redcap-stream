@@ -3,6 +3,7 @@
 use App\Http\Controllers\CustomizedPackages\AHP\ServiceBasedIndicators as ServiceBasedIndicatorsControllers;
 use App\Http\Controllers\CustomizedPackages\DashboardController as CustomPackagesDashboard;
 use App\Http\Controllers\CustomizedPackages\NCD\Hba1c as Hba1cControllers;
+use App\Http\Controllers\CustomizedPackages\RequestController as RequestController;
 use App\Http\Controllers\CustomizedPackages\NCDPPlus\CoreIndicators as CoreIndicatorsControllers;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Projects\AHP as AHPControllers;
@@ -18,6 +19,12 @@ Route::get('/', function () {
 
 Route::middleware('auth')->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
+    Route::get('projects/create', function () {
+        return Inertia::render('UnderConstruction');
+    })->name('projects.create');
+    Route::get('under-construction', function () {
+        return Inertia::render('UnderConstruction');
+    })->name('under.construction');
     Route::get('project/{project_id}/questionnaire/{field_name}/data', GetFieldNameData::class)->name('item.data');
 
     // Project NCD
@@ -41,6 +48,7 @@ Route::middleware('auth')->group(function () {
     // // Custom Packages
     Route::group(['as' => 'packages.', 'prefix' => 'packages'], function () {
         Route::get('project/{project_id}/dashboard', CustomPackagesDashboard::class)->name('dashboard');
+        Route::get('project/{project_id}/request', RequestController::class)->name('request');
         Route::get('project/{project_id}/hba1c_analytics', Hba1cControllers\DashboardController::class)->name('hba1c');
         Route::get('project/{project_id}/hba1c_analytics/alldata', Hba1cControllers\AllHba1cController::class)->name('hba1c.alldata');
         Route::get('project/{project_id}/hba1c_analytics/averagedrespondents', Hba1cControllers\AveragedRespondentController::class)->name('hba1c.avgresp');

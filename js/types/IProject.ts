@@ -4,7 +4,7 @@ interface Project {
     app_title: string
     creation_time: string
     production_time: string
-    status: number
+    status: string
 }
 
 type IProject = Readonly<Project>
