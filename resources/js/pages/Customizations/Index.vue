@@ -79,9 +79,9 @@ const getBgColors = (index: number) => {
 
 // Helper function to get package href
 const getPackageHref = (customProject: any) => {
-    if (customProject.customization_name === 'Review Appointments') {
-        return route('under.construction');
-    }
+    // if (customProject.customization_name === 'Review Appointments') {
+    //     return route('under.construction');
+    // }
     return `/packages/project/${props.project.project_id}/${customProject.path}`;
 };
 </script>

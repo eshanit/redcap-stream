@@ -3,6 +3,7 @@
 use App\Http\Controllers\CustomizedPackages\AHP\ServiceBasedIndicators as ServiceBasedIndicatorsControllers;
 use App\Http\Controllers\CustomizedPackages\DashboardController as CustomPackagesDashboard;
 use App\Http\Controllers\CustomizedPackages\NCD\Hba1c as Hba1cControllers;
+use App\Http\Controllers\CustomizedPackages\NCD\Appointments\ReviewController;
 use App\Http\Controllers\CustomizedPackages\RequestController as RequestController;
 use App\Http\Controllers\CustomizedPackages\NCDPPlus\CoreIndicators as CoreIndicatorsControllers;
 use App\Http\Controllers\DashboardController;
@@ -55,6 +56,9 @@ Route::middleware('auth')->group(function () {
         Route::get('project/{project_id}/hba1c_analytics/genderanalysis', Hba1cControllers\GenderHBa1cDataController::class)->name('hba1c.gender');
         Route::get('project/{project_id}/hba1c_analytics/facilityanalysis', Hba1cControllers\FacilityHBa1cDataController::class)->name('hba1c.facility');
         Route::get('project/{project_id}/hba1c_analytics/respondent/{respondent}/data', Hba1cControllers\RespondentHBa1cDataController::class)->name('hba1c.resp.data');
+
+        // NCD Appointments Review
+        Route::get('project/{project_id}/appointment_reviews', [ReviewController::class, 'index'])->name('appointment.reviews');
 
         // core indicators
         Route::get('project/{project_id}/core_indicators', CoreIndicatorsControllers\DashboardController::class)->name('core');
