@@ -190,24 +190,17 @@ class ReviewController extends Controller
         });
 
         $statusDistribution = $this->getStatusDistribution($resultXY->toArray());
-        $upcomingAppointments = $this->getUpcomingAppointments($results->toArray());
-        $lateAppointments = $this->getLateAppointments($resultXY->toArray());
-        $trends = $this->getRecordSpecificTrends($resultXY->toArray());
-        $latestVisits = $this->getLatestVisit($resultXY->toArray());
-        $defaulters = $this->getDefaultedRecords($resultXY->toArray());
+        $upcomingCount = count($this->getUpcomingAppointments($results->toArray()));
+        $defaultersCount = count($this->getDefaultedRecords($resultXY->toArray()));
 
         return Inertia::render(
             'Customizations/NCD/Appointments/Review',
             [
                 'project' => $project,
-                'data' => $resultXY,
-                'dataCounts' => $trends,
-                'latestData' => $latestVisits,
                 'statusDistribution' => $statusDistribution,
-                'upcomingAppointments' => $upcomingAppointments,
-                'lateAppointments' => $lateAppointments,
-                'trends' => $trends,
-                'defaulters' => $defaulters
+                'upcomingCount' => $upcomingCount,
+                'defaultersCount' => $defaultersCount,
+                // Note: All other data now loads via API endpoints when tabs are accessed
             ]
         );
     }
@@ -365,5 +358,301 @@ class ReviewController extends Controller
         }
 
         return $defaults;
+    }
+
+    /**
+     * API Endpoints for Lazy Loading & Pagination
+     * These endpoints load data on-demand when tabs are accessed
+     */
+
+    /**
+     * Get all visits with pagination
+     */
+    public function getAllVisits(string $id)
+    {
+        $page = request()->get('page', 1);
+        $perPage = 100; // Records per page
+
+        $results = $this->getProcessedResults($id);
+        $visitsData = $this->transformResults($results)->toArray();
+        
+        // Paginate by record keys (not by individual visits within each record)
+        $recordKeys = array_keys($visitsData);
+        $total = count($recordKeys);
+        $offset = ($page - 1) * $perPage;
+        $paginatedKeys = array_slice($recordKeys, $offset, $perPage);
+        
+        // Build paginated data
+        $paginatedData = [];
+        foreach ($paginatedKeys as $key) {
+            $paginatedData[$key] = $visitsData[$key];
+        }
+
+        return response()->json([
+            'data' => $paginatedData,
+            'pagination' => [
+                'total' => $total,
+                'page' => $page,
+                'perPage' => $perPage,
+                'lastPage' => ceil($total / $perPage),
+            ]
+        ]);
+    }
+
+    /**
+     * Get latest visits only
+     */
+    public function getLatestVisits(string $id)
+    {
+        $page = request()->get('page', 1);
+        $perPage = 100;
+
+        $results = $this->getProcessedResults($id);
+        $transformedResults = $this->transformResults($results)->toArray();
+        $latestData = $this->getLatestVisit($transformedResults);
+        
+        // Paginate by record keys
+        $recordKeys = array_keys($latestData ?? []);
+        $total = count($recordKeys);
+        $offset = ($page - 1) * $perPage;
+        $paginatedKeys = array_slice($recordKeys, $offset, $perPage);
+        
+        $paginatedData = [];
+        foreach ($paginatedKeys as $key) {
+            $paginatedData[$key] = $latestData[$key];
+        }
+
+        return response()->json([
+            'data' => $paginatedData,
+            'pagination' => [
+                'total' => $total,
+                'page' => $page,
+                'perPage' => $perPage,
+                'lastPage' => ceil($total / $perPage),
+            ]
+        ]);
+    }
+
+    /**
+     * Get upcoming appointments only
+     */
+    public function getUpcoming(string $id)
+    {
+        $page = request()->get('page', 1);
+        $perPage = 100;
+
+        $results = $this->getProcessedResults($id)->toArray();
+        $upcoming = $this->getUpcomingAppointments($results);
+        
+        $total = count($upcoming);
+        $offset = ($page - 1) * $perPage;
+        $paginatedData = array_slice($upcoming, $offset, $perPage, true);
+
+        return response()->json([
+            'data' => $paginatedData,
+            'pagination' => [
+                'total' => $total,
+                'page' => $page,
+                'perPage' => $perPage,
+                'lastPage' => ceil($total / $perPage),
+            ]
+        ]);
+    }
+
+    /**
+     * Get missed/defaulted appointments only
+     */
+    public function getMissedAppointments(string $id)
+    {
+        $page = request()->get('page', 1);
+        $perPage = 100;
+
+        $results = $this->getProcessedResults($id);
+        $transformedResults = $this->transformResults($results)->toArray();
+        $defaulters = $this->getDefaultedRecords($transformedResults);
+        
+        $total = count($defaulters ?? []);
+        $offset = ($page - 1) * $perPage;
+        $paginatedData = array_slice($defaulters ?? [], $offset, $perPage, true);
+
+        return response()->json([
+            'data' => $paginatedData,
+            'pagination' => [
+                'total' => $total,
+                'page' => $page,
+                'perPage' => $perPage,
+                'lastPage' => ceil($total / $perPage),
+            ]
+        ]);
+    }
+
+    /**
+     * Get analytics per record
+     */
+    public function getAnalytics(string $id)
+    {
+        $page = request()->get('page', 1);
+        $perPage = 100;
+
+        $results = $this->getProcessedResults($id);
+        $resultXY = $this->transformResults($results)->toArray();
+        $analytics = $this->getRecordSpecificTrends($resultXY);
+        
+        $total = count($analytics);
+        $offset = ($page - 1) * $perPage;
+        $paginatedData = array_slice($analytics, $offset, $perPage, true);
+
+        return response()->json([
+            'data' => $paginatedData,
+            'pagination' => [
+                'total' => $total,
+                'page' => $page,
+                'perPage' => $perPage,
+                'lastPage' => ceil($total / $perPage),
+            ]
+        ]);
+    }
+
+    /**
+     * Helper method: Get processed results (extracted from index method)
+     */
+    private function getProcessedResults(string $id)
+    {
+        return ProjectData3::where('project_id', $id)
+            ->whereIn('field_name', ['ncd_visit_date', 'ncd_next_review', 'ncd_tel_pat', 'ncd_tel_kin', 'ncd_health_facility'])
+            ->get()
+            ->groupBy('record')
+            ->map(function ($group) {
+                return $group->groupBy('instance')->map(function ($eventGroup) {
+                    return [
+                        'event_id' => $eventGroup->pluck('event_id')->first(),
+                        'event' => $eventGroup->pluck('instance')->first() ?? 1,
+                        'ncd_health_facility' => $eventGroup->where('field_name', 'ncd_health_facility')->pluck('value')->first(),
+                        'ncd_visit_date' => $eventGroup->where('field_name', 'ncd_visit_date')->pluck('value')->first(),
+                        'ncd_next_review' => $eventGroup->where('field_name', 'ncd_next_review')->pluck('value')->first(),
+                        'ncd_tel_pat' => $eventGroup->where('field_name', 'ncd_tel_pat')->pluck('value')->first(),
+                        'ncd_tel_kin' => $eventGroup->where('field_name', 'ncd_tel_kin')->pluck('value')->first(),
+                    ];
+                });
+            });
+    }
+
+    /**
+     * Helper method: Transform all visits (extracted from index method)
+     */
+    private function transformAllVisits($results)
+    {
+        // Use transformResults to get properly formatted data
+        return $this->transformResults($results)->toArray();
+    }
+
+    /**
+     * Helper method: Transform results (extracted from index method)
+     */
+    private function transformResults($results)
+    {
+        // Same transformation logic from index method
+        $resultsElements = $results->map(function ($eventGroups) {
+            $clonedGroups = $eventGroups->map(function ($group) {
+                return collect($group);
+            });
+            return $clonedGroups->select('event_id', 'event', 'ncd_health_facility', 'ncd_tel_pat', 'ncd_tel_kin');
+        });
+
+        $resultsCurrentVisitDates = $results->map(function ($eventGroups) {
+            $clonedGroups = $eventGroups->map(function ($group) {
+                return collect($group);
+            });
+            $dates = $clonedGroups->pluck('ncd_visit_date')->prepend('');
+            if ($clonedGroups->count() > 2) {
+                $clonedGroups->pluck('ncd_visit_date')->push('');
+            }
+            return $clonedGroups->pluck('ncd_visit_date');
+        });
+
+        $resultsProposedDates = $results->map(function ($eventGroups) {
+            $clonedGroups = $eventGroups->map(function ($group) {
+                return collect($group);
+            });
+            $dates = $clonedGroups->pluck('ncd_next_review')->prepend('');
+            if ($clonedGroups->count() > 2) {
+                $popped = $clonedGroups->pop();
+                $clonedGroups->pluck('ncd_next_review')->push('');
+            }
+            return $dates;
+        });
+
+        $resultsActualDates = $resultsCurrentVisitDates;
+
+        return $resultsElements->map(function ($item, $index) use ($resultsCurrentVisitDates, $resultsProposedDates, $resultsActualDates) {
+            $proposedDates = $resultsProposedDates[$index];
+            $actualDates = $resultsActualDates[$index];
+            
+            $dateDiffs = $proposedDates->zip($actualDates)->map(function ($pair) {
+                [$proposedDates, $actualDates] = $pair;
+                if ($actualDates && $proposedDates) {
+                    $carbonDate1 = Carbon::parse($proposedDates);
+                    $carbonDate2 = Carbon::parse($actualDates);
+                    return $carbonDate1->diffInDays($carbonDate2);
+                }
+                return null;
+            });
+
+            $dateDiffHumans = $proposedDates->zip($actualDates)->map(function ($pair) {
+                [$proposedDates, $actualDates] = $pair;
+                if ($actualDates && $proposedDates) {
+                    $carbonDate1 = Carbon::parse($proposedDates);
+                    $carbonDate2 = Carbon::parse($actualDates);
+                    return $carbonDate2->diffForHumans($carbonDate1);
+                }
+                return null;
+            });
+
+            $today = Carbon::today();
+            $dateDiffFromNow = $actualDates->map(function ($date) use ($today) {
+                if ($date) {
+                    $carbonDate = Carbon::parse($date);
+                    return $carbonDate->diffForHumans($today);
+                }
+                return "Invalid date";
+            });
+
+            $status = $proposedDates->zip($actualDates)->map(function ($pair) {
+                [$proposedDates, $actualDates] = $pair;
+                if ($actualDates && $proposedDates) {
+                    $carbonDate1 = Carbon::parse($proposedDates);
+                    $carbonDate2 = Carbon::parse($actualDates);
+                    if ($actualDates > $proposedDates) {
+                        return 'Late';
+                    } else if ($actualDates == $proposedDates) {
+                        return 'On Time';
+                    } else if ($actualDates < $proposedDates) {
+                        return 'Early';
+                    }
+                }
+                return '-';
+            });
+
+            $statusDistribution = $status->filter()->countBy()->toArray();
+            $facility = $item->pluck('ncd_health_facility')->toArray();
+            $patient_num = $item->pluck('ncd_tel_pat')->toArray();
+            $kin_num = $item->pluck('ncd_tel_kin')->toArray();
+
+            return [
+                'event_id' => $item->pluck('event_id')->toArray(),
+                'event' => $item->pluck('event')->toArray(),
+                'facility' => $facility[0] ?? '',
+                'tel_pat' => $patient_num[0] ?? '-',
+                'tel_kin' => $kin_num[0] ?? '-',
+                'visit_dates' => $resultsCurrentVisitDates[$index]->toArray(),
+                'proposed_dates' => $resultsProposedDates[$index]->toArray(),
+                'actual_dates' => $resultsActualDates[$index]->toArray(),
+                'days_difference' => $dateDiffs->toArray(),
+                'human_readable' => $dateDiffHumans->toArray(),
+                'diff_from_today' => $dateDiffFromNow->toArray(),
+                'status' => $status->toArray(),
+                'status_distribution' => $statusDistribution
+            ];
+        });
     }
 }

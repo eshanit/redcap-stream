@@ -79,9 +79,9 @@ const getBgColors = (index: number) => {
 
 // Helper function to get package href
 const getPackageHref = (customProject: any) => {
-    // if (customProject.customization_name === 'Review Appointments') {
-    //     return route('under.construction');
-    // }
+    if (customProject.customization_name === 'Review Appointments') {
+        return route('packages.payment', [props.project.project_id]);
+    }
     return `/packages/project/${props.project.project_id}/${customProject.path}`;
 };
 </script>
@@ -171,7 +171,7 @@ const getPackageHref = (customProject: any) => {
                                     <!-- Description -->
                                     <div class="mb-6">
                                         <p class="text-slate-600 dark:text-slate-300 text-sm leading-relaxed line-clamp-3">
-                                            {{ customProject.description || 'Detailed analysis and reports for this research project.' }}
+                                           <span v-html="customProject.description || 'Detailed analysis and reports for this research project.'"></span>
                                         </p>
                                     </div>
 

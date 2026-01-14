@@ -60,6 +60,9 @@ Route::middleware('auth')->group(function () {
         // NCD Appointments Review
         Route::get('project/{project_id}/appointment_reviews', [ReviewController::class, 'index'])->name('appointment.reviews');
 
+        // Payment
+        Route::get('project/{project_id}/payment', [\App\Http\Controllers\CustomizedPackages\PaymentController::class, 'index'])->name('payment');
+
         // core indicators
         Route::get('project/{project_id}/core_indicators', CoreIndicatorsControllers\DashboardController::class)->name('core');
         Route::get('project/{project_id}/core_indicators/enrollment', CoreIndicatorsControllers\EnrollmentAnalysisController::class)->name('core.enrollment');
@@ -150,6 +153,15 @@ Route::middleware('auth')->group(function () {
 
         // AHP Data Summary Report
         Route::get('project/{project_id}/general_data_overview', \App\Http\Controllers\CustomizedPackages\AHP\DataSummary\DataReportController::class)->name('data_summary.report');
+    });
+
+    // API Endpoints for lazy-loaded data (NCD Appointments Review)
+    Route::group(['prefix' => 'api'], function () {
+        Route::get('project/{project_id}/appointment_reviews/all_visits', [ReviewController::class, 'getAllVisits'])->name('api.appointment.reviews.all_visits');
+        Route::get('project/{project_id}/appointment_reviews/latest_visits', [ReviewController::class, 'getLatestVisits'])->name('api.appointment.reviews.latest_visits');
+        Route::get('project/{project_id}/appointment_reviews/upcoming', [ReviewController::class, 'getUpcoming'])->name('api.appointment.reviews.upcoming');
+        Route::get('project/{project_id}/appointment_reviews/missed', [ReviewController::class, 'getMissedAppointments'])->name('api.appointment.reviews.missed');
+        Route::get('project/{project_id}/appointment_reviews/analytics', [ReviewController::class, 'getAnalytics'])->name('api.appointment.reviews.analytics');
     });
 });
 
