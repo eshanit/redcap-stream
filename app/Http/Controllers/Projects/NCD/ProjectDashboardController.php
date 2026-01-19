@@ -45,7 +45,7 @@ class ProjectDashboardController extends Controller
                     ->from('redcap_data3') // Use the correct table name here
                     ->groupBy('record');
             })
-            ->where('value', '<=', Carbon::now()->subDays(60)) // Check if the review date is 60 days past
+            ->where('value', '<=', Carbon::now()->subDays(180)) // Check if the review date is 180 days past
             ->distinct('record') // Ensure we only count unique records
             ->count('record'); // Count distinct records
 
