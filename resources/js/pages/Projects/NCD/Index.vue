@@ -118,7 +118,7 @@ const facilityData = computed(() => props.respondentFacility || {});
                                 </div>
                             </div>
                             <div class="text-sm text-slate-500 dark:text-slate-400">
-                                Missed review by 60+ days
+                                Missed review by 180+ days
                             </div>
                         </div>
 
