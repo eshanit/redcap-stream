@@ -80,6 +80,8 @@ class ProjectService
                     $educationCode = $demo['education'] ?? $firstValidDemographics['education'] ?? null;
                     $education = EducationLevelEnum::fromValue($educationCode);
 
+                    
+
                     return [
                         'record' => $record,
                         'health_facility' => $facility,
