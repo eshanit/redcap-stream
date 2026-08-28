@@ -15,6 +15,18 @@ After analyzing both the **onboarding plan** and the **actual database structure
 - The table is **read‑only** for analytics – never write or alter source rows.
 - The `value` column is raw REDCap codes – decoding requires metadata.
 
+### Project and Instrument Matrix
+
+The three `redcap_data6` projects are:
+
+| Project | Project ID | Common instruments | Project-specific instruments |
+|---------|------------|--------------------|-----------------------------|
+| FCH | `76` | `demog_*`, `sti_*`, `prepr_*`, `prep_*`, `mh_*`, `he_*`, `couns_*`, `pls_*`, `hts_*` | `fp_*`, `ancr_*`, `anc_*`, `pncr_*`, `pncm_*`, `pncb_*` |
+| OI/ART | `78` | `demog_*`, `sti_*`, `prepr_*`, `prep_*`, `mh_*`, `he_*`, `couns_*`, `pls_*`, `hts_*` | `artr_*`, `artib_*`, `art_*` |
+| OPD | `79` | `demog_*`, `sti_*`, `prepr_*`, `prep_*`, `mh_*`, `he_*`, `couns_*`, `pls_*`, `hts_*` | `opd_*` |
+
+The prefix is used to map a `redcap_data6.field_name` to its instrument. Project membership must still be applied because the same prefix can occur in more than one project. The original REDCap CSV/data dictionary and live REDCap metadata are authoritative if a prefix or instrument name differs from this documentation.
+
 ### Registration and Follow-up Instrument Rules
 
 The field-name prefix identifies the stage and subject of a service workflow. It is not merely a naming convention; it is required when reconstructing registrations, follow-ups, and encounters from the long-format table.
@@ -57,6 +69,12 @@ project_id + record + event_id + form_name + normalized_instance
 ```
 
 `event_id` identifies the longitudinal event and is resolved through `redcap_events_metadata`; its `arm_id` identifies the event arm. `instance` identifies a repetition of a particular repeating instrument within that event. REDCap exports may represent the first/non-repeating occurrence as `NULL` or blank (and some application code may expose it as `0`), so the raw value must be retained and a separate normalized instance should be used for reporting. Never combine instance numbers across different forms.
+
+### Cross-Project Patient and Service Tracking
+
+Patient tracking uses two identities. The immutable source identity is `project_id + record`; the application-level patient identity is a separate canonical patient ID. A source record is never automatically merged with another project record solely because names look similar. Source records are linked to a canonical patient with a match method, confidence, review status, and audit fields so uncertain matches can be reviewed or undone.
+
+The analytics read model contains `data6_source_records`, `data6_patients`, `data6_patient_source_records`, and `data6_encounters`. The first synchronization creates one canonical patient for each source record. Cross-project links can subsequently be added only through a confirmed identifier or a reviewed match. Mother-baby data retains separate mother and baby subjects and uses `pncr_mother_baby` as the pair relationship identifier, not as a replacement for patient identity.
 
 ---
 

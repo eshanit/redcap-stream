@@ -3,7 +3,10 @@
 namespace App\Http\Controllers\Projects\Data6;
 
 use App\Http\Controllers\Controller;
+use App\Models\Data6Patient;
+use App\Models\Data6SourceRecord;
 use App\Services\ProjectData6Service;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class ProjectDashboardController extends Controller
@@ -28,5 +31,39 @@ class ProjectDashboardController extends Controller
             'recordCount' => $data6Service->uniqueRecordCount(),
             'recordsByProject' => $data6Service->recordsByProject(),
         ]);
+    }
+
+    public function timeline(Data6Patient $patient, ProjectData6Service $data6Service)
+    {
+        return response()->json([
+            'patient_id' => $patient->id,
+            'source_records' => $patient->sourceRecords()->get([
+                'data6_source_records.id',
+                'project_id',
+                'redcap_record',
+            ]),
+            'encounters' => $data6Service->timeline($patient),
+        ]);
+    }
+
+    public function linkSourceRecord(
+        Request $request,
+        Data6Patient $patient,
+        Data6SourceRecord $sourceRecord,
+        ProjectData6Service $data6Service,
+    ) {
+        $validated = $request->validate([
+            'match_method' => ['required', 'in:confirmed_identifier,manual_review'],
+            'match_confidence' => ['nullable', 'numeric', 'between:0,1'],
+        ]);
+
+        $data6Service->linkSourceRecord(
+            $patient,
+            $sourceRecord,
+            $validated['match_method'],
+            isset($validated['match_confidence']) ? (float) $validated['match_confidence'] : null,
+        );
+
+        return response()->json(['linked' => true]);
     }
 }

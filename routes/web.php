@@ -161,6 +161,10 @@ Route::middleware('auth')->group(function () {
 
     // API Endpoints for lazy-loaded data (NCD Appointments Review)
     Route::group(['prefix' => 'api'], function () {
+        Route::get('data6/patient/{patient}/timeline', [Data6ProjectDashboardController::class, 'timeline'])
+            ->name('api.data6.patient.timeline');
+        Route::post('data6/patient/{patient}/source-record/{sourceRecord}', [Data6ProjectDashboardController::class, 'linkSourceRecord'])
+            ->name('api.data6.patient.source-record.link');
         Route::get('project/{project_id}/appointment_reviews/all_visits', [ReviewController::class, 'getAllVisits'])->name('api.appointment.reviews.all_visits');
         Route::get('project/{project_id}/appointment_reviews/latest_visits', [ReviewController::class, 'getLatestVisits'])->name('api.appointment.reviews.latest_visits');
         Route::get('project/{project_id}/appointment_reviews/upcoming', [ReviewController::class, 'getUpcoming'])->name('api.appointment.reviews.upcoming');

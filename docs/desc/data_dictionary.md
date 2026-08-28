@@ -794,6 +794,11 @@ The shared instruments (STI, FP, PrEP, MH, HE, Counselling, Peer Support) are id
 
 ## Relationship Between Instruments
 - **Demographics** is shared across all three sub‑projects; each record has one demographic record.
+- The three sub‑projects are FCH (`project_id` 76), OI/ART (`project_id` 78), and OPD (`project_id` 79).
+- Common instruments across all three projects are Demographics (`demog_*`), STI Register (`sti_*`), PrEP Initial Register (`prepr_*`), PrEP Follow-ups (`prep_*`), Mental Health (`mh_*`), Health Education (`he_*`), Counselling (`couns_*`), Peer Support Register (`pls_*`), and HIV Testing Services Register (`hts_*`).
+- FCH additionally contains Family Planning (`fp_*`), ANC Initial Register (`ancr_*`), ANC Booking Follow-ups (`anc_*`), Mother-Baby Pair Initial Register Per Baby (`pncr_*`), Mother Follow-ups (`pncm_*`), and Baby Follow-ups (`pncb_*`).
+- OI/ART additionally contains OI/ART Initial Register (`artr_*`), OI/ART Initial Baseline (`artib_*`), and OI/ART Follow-ups (`art_*`).
+- OPD additionally contains Outpatient (`opd_*`). Its visits are identified by `instance` and/or `opd_date`.
 - Service‑specific instruments (STI, FP, ANC, PNCR, PrEP, ART, OPD, etc.) are filled per client visit or encounter.
 - Branching logic ensures that only relevant fields appear (e.g., contraception details only if fp_access='Y').
 - Some instruments are referenced by others (e.g., `sti_register` is recommended when PrEP STI screening is positive).
@@ -823,12 +828,19 @@ The following instruments use one field-prefix family for both initial and repea
 | Peer Support Register | `pls_*` | Use `instance`. |
 | HIV Testing Services | `hts_*` | Use `instance`. |
 | OI/ART follow-ups | `art_*` | Prefer `instance`; use `art_review_date` as the business visit date for ordering, validation, and reporting. |
+| OPD | `opd_*` | Prefer `instance`; use `opd_date` as the business visit date and fallback repeat key when no usable instance exists. |
 
 The date fields describe the business date of an encounter. When an `instance` exists, it must be retained as the primary repeat discriminator for that form and event, with dates used for ordering, validation, and reporting. If `instance` is absent or unusable for STI or Family Planning, the relevant date may provide a provisional date-derived repeat key. Duplicate or conflicting dates should be flagged for data quality review.
 
 The generic term `pnc_*` can describe the PNC family, but fields must be interpreted using the concrete prefixes `pncm_*` and `pncb_*` so mother and baby follow-ups remain distinct.
 
 In `redcap_data6`, each field is a separate long-format row. Registration and follow-up rows must be grouped by `project_id`, `record`, `event_id`, form/instrument, and `instance`. `event_id` links to `redcap_events_metadata.event_id`, whose `arm_id` links the event to its arm. A repeating instrument can have multiple instances within one event. The source instance value must be preserved; reporting code may additionally normalize `NULL`/blank (or an exported `0`) to the first occurrence, without treating instance numbers from different instruments as the same visit.
+
+### Cross-Project Patient and Service Tracking
+
+The immutable REDCap source identity is `project_id + record`. It is retained separately from the application-level canonical patient ID. A record from FCH (`76`), OI/ART (`78`), or OPD (`79`) is not merged automatically with another project record only because names are similar. Any cross-project link retains its match method, confidence, review status, and audit information.
+
+The application read model contains source records, canonical patients, patient-to-source-record links, and encounters. An encounter represents one service occurrence and is grouped by `project_id + record + event_id + form_name + normalized_instance`; it stores the service, subject type, raw instance, normalized instance, business date, and references to the original `redcap_data6` rows. Mother-baby records retain separate mother and baby subjects, with `pncr_mother_baby` stored as the pair relationship identifier.
 
 ---
 
