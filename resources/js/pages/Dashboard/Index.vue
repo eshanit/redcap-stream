@@ -7,7 +7,8 @@ import { Head } from '@inertiajs/vue3';
 import { format, parseISO } from 'date-fns';
 
 const props = defineProps<{
-    projects: Array<IProject>
+    projects: Array<IProject>;
+    data6Project: IProject;
 }>()
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -104,7 +105,9 @@ const breadcrumbs: BreadcrumbItem[] = [
                     <Link
                         v-for="project in projects"
                         :key="project.project_id"
-                        :href="route(project.project_name+'.project.dashboard',[project.project_id])"
+                        :href="[76, 78, 79].includes(project.project_id)
+                            ? route('data6.project.dashboard', [project.project_id])
+                            : route(project.project_name+'.project.dashboard', [project.project_id])"
                         class="group relative block"
                     >
                         <div class="relative overflow-hidden rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-6 shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-[1.02] hover:border-red-300 dark:hover:border-red-500/50">
@@ -152,6 +155,23 @@ const breadcrumbs: BreadcrumbItem[] = [
 
                             <!-- Hover gradient effect -->
                             <div class="absolute inset-0 bg-gradient-to-r from-red-500/0 via-orange-500/0 to-red-500/0 group-hover:from-red-500/5 group-hover:via-orange-500/5 group-hover:to-red-500/5 transition-all duration-500 opacity-0 group-hover:opacity-100"></div>
+                        </div>
+                    </Link>
+
+                    <Link
+                        :href="route('data6.dashboard')"
+                        class="group relative block"
+                    >
+                        <div class="relative overflow-hidden rounded-2xl bg-white p-6 shadow-lg transition-all duration-300 hover:scale-[1.02] hover:shadow-xl dark:bg-slate-800">
+                            <div class="mb-4 flex items-center justify-between">
+                                <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-r from-red-500 to-orange-500">
+                                    <span class="text-lg font-bold text-white">3</span>
+                                </div>
+                                <span class="rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-600 dark:bg-green-900/30 dark:text-green-400">Active</span>
+                            </div>
+                            <h3 class="text-lg font-bold text-slate-900 dark:text-white">{{ data6Project.app_title }}</h3>
+                            <p class="mt-3 text-sm text-slate-600 dark:text-slate-300">FCH, OI/ART, and OPD combined</p>
+                            <div class="mt-6 border-t border-slate-200 pt-3 text-sm text-red-500 dark:border-slate-700">View combined analysis</div>
                         </div>
                     </Link>
 

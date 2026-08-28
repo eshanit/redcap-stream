@@ -7,6 +7,7 @@ use App\Http\Controllers\CustomizedPackages\NCD\Appointments\ReviewController;
 use App\Http\Controllers\CustomizedPackages\RequestController as RequestController;
 use App\Http\Controllers\CustomizedPackages\NCDPPlus\CoreIndicators as CoreIndicatorsControllers;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\Projects\Data6\ProjectDashboardController as Data6ProjectDashboardController;
 use App\Http\Controllers\Projects\AHP as AHPControllers;
 use App\Http\Controllers\Projects\NCD as NCDControllers;
 use App\Http\Controllers\Projects\NCDPPlus as NCDPPlusControllers;
@@ -27,6 +28,9 @@ Route::middleware('auth')->group(function () {
         return Inertia::render('UnderConstruction');
     })->name('under.construction');
     Route::get('project/{project_id}/questionnaire/{field_name}/data', GetFieldNameData::class)->name('item.data');
+
+    Route::get('data6', Data6ProjectDashboardController::class)->name('data6.dashboard');
+    Route::get('data6/project/{project_id}', Data6ProjectDashboardController::class)->name('data6.project.dashboard');
 
     // Project NCD
     Route::group(['as' => 'ncd_booklet_20249fea.', 'prefix' => 'ncd'], function () {
