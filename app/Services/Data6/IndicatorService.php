@@ -6,34 +6,28 @@ use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
 /**
- * Computes the 45 AHP indicators (data/20260715_AHP_ Indicators.xlsx) directly
- * against the long-format redcap_data6 table.
+ * Computes the 45 AHP indicators against the long-format redcap_data6 table,
+ * per the revised matrix (data/20260905_AHP_ Indicators_kpq.xlsx).
  *
- * Dedup rules (docs/plan_ahp_dashboard.md §1, confirmed 2026-09-03):
- *  - service-specific instruments are read ONLY from their home project
- *    (FCH forms -> 76, ART forms -> 78, OPD forms -> 79); the stale split
- *    copies in the other projects are ignored;
- *  - shared instruments (sti, prepr, prep, mh, he, couns, pls, hts, demog)
- *    are unioned across all three projects and deduplicated by
- *    (record, business date, instance) / COUNT(DISTINCT record);
- *  - the patient key is `record` (continues from project 48).
+ * Definitions: adolescent = 10-19 at the service date; LTFU = next
+ * appointment missed by 28 days; age bands 10-14 / 15-19.
  */
 class IndicatorService
 {
-    private const P_ALL = '76, 78, 79';
-    private const P_FCH = '76';
-    private const P_ART = '78';
-    private const P_OPD = '79';
-
-    private const DATE_RE = "^[0-9]{4}-[0-9]{2}-[0-9]{2}$";
-    private const NUM_RE = "^[0-9]+$";
+    use QueryFragments;
 
     private string $from;
+
     private string $to;
+
     private ?string $district;
+
     private ?string $facility;
+
     private ?string $gender;
+
     private ?int $ageLo;
+
     private ?int $ageHi;
 
     public function compute(array $filters): array
@@ -71,7 +65,7 @@ class IndicatorService
         $rows = DB::select(
             "SELECT field_name, value, COUNT(DISTINCT record) AS n
              FROM redcap_data6
-             WHERE project_id IN (".self::P_ALL.")
+             WHERE project_id IN (".self::$P_ALL.")
                AND field_name IN ('demog_district', 'demog_facility')
              GROUP BY field_name, value ORDER BY value"
         );
@@ -88,120 +82,13 @@ class IndicatorService
         return $options;
     }
 
-    // ------------------------------------------------------------------
-    // Shared SQL building blocks
-    // ------------------------------------------------------------------
-
-    /** Demographics dimension, pre-filtered by district/facility/gender. */
-    private function demogSql(): array
-    {
-        $having = [];
-        $bindings = [];
-        foreach (['district' => $this->district, 'facility' => $this->facility, 'gender' => $this->gender] as $col => $val) {
-            if ($val !== null && $val !== '') {
-                $having[] = "{$col} = ?";
-                $bindings[] = $val;
-            }
-        }
-        $havingSql = $having === [] ? '' : 'HAVING '.implode(' AND ', $having);
-
-        $sql = "SELECT record,
-                       MAX(CASE WHEN field_name = 'demog_dateofbirth' THEN value END) AS dob,
-                       MAX(CASE WHEN field_name = 'demog_gender' THEN value END) AS gender,
-                       MAX(CASE WHEN field_name = 'demog_district' THEN value END) AS district,
-                       MAX(CASE WHEN field_name = 'demog_facility' THEN value END) AS facility
-                FROM redcap_data6
-                WHERE project_id IN (".self::P_ALL.")
-                  AND field_name IN ('demog_dateofbirth', 'demog_gender', 'demog_district', 'demog_facility')
-                GROUP BY record {$havingSql}";
-
-        return [$sql, $bindings];
-    }
-
-    /** Pivot one instrument's fields to columns, one row per (record, event, instance). */
-    private function pivotSql(string $projects, array $fields): string
-    {
-        $cases = [];
-        foreach ($fields as $alias => $field) {
-            $cases[] = "MAX(CASE WHEN field_name = '{$field}' THEN value END) AS {$alias}";
-        }
-        $fieldList = "'".implode("', '", array_values($fields))."'";
-
-        return 'SELECT record, event_id, COALESCE(instance, 1) AS inst, '.implode(', ', $cases).'
-                FROM redcap_data6
-                WHERE project_id IN ('.$projects.")
-                  AND field_name IN ({$fieldList})
-                GROUP BY record, event_id, COALESCE(instance, 1)";
-    }
-
-    /** Age-at-date condition against the demog alias `d`. */
-    private function ageCond(string $dateExpr): string
-    {
-        if ($this->ageLo === null) {
-            return '1 = 1';
-        }
-
-        return "(d.dob REGEXP '".self::DATE_RE."' AND {$dateExpr} REGEXP '".self::DATE_RE."'
-                 AND TIMESTAMPDIFF(YEAR, d.dob, {$dateExpr}) BETWEEN {$this->ageLo} AND {$this->ageHi})";
-    }
-
-    /** Age condition evaluated at the period end (status/no-date indicators). */
-    private function ageAtPeriodEnd(): string
-    {
-        if ($this->ageLo === null) {
-            return '1 = 1';
-        }
-
-        return "(d.dob REGEXP '".self::DATE_RE."'
-                 AND TIMESTAMPDIFF(YEAR, d.dob, '{$this->to}') BETWEEN {$this->ageLo} AND {$this->ageHi})";
-    }
-
-    private function periodCond(string $dateExpr): string
-    {
-        return "({$dateExpr} REGEXP '".self::DATE_RE."' AND {$dateExpr} BETWEEN '{$this->from}' AND '{$this->to}')";
-    }
-
-    /**
-     * UNION of one row per (record, instrument, date, instance) for every
-     * dated encounter, deduplicated across mirrored projects.
-     */
-    private function encountersSql(): string
-    {
-        $sources = [
-            ['sti', self::P_ALL, 'sti_visit_date'],
-            ['fp', self::P_FCH, 'fp_date'],
-            ['ancr', self::P_FCH, 'ancr_date'],
-            ['anc', self::P_FCH, 'anc_date'],
-            ['pncr', self::P_FCH, 'pncr_date'],
-            ['pncm', self::P_FCH, 'pncm_visit_date'],
-            ['pncb', self::P_FCH, 'pncb_visit_date'],
-            ['prepr', self::P_ALL, 'prepr_date'],
-            ['prep', self::P_ALL, 'prep_visit_date'],
-            ['artr', self::P_ART, 'artr_registration_date'],
-            ['art', self::P_ART, 'art_review_date'],
-            ['hts', self::P_ALL, 'hts_hiv_date'],
-            ['pls', self::P_ALL, 'pls_date'],
-            ['opd', self::P_OPD, 'opd_date'],
-        ];
-
-        $parts = [];
-        foreach ($sources as [$name, $projects, $dateField]) {
-            $parts[] = "SELECT DISTINCT record, '{$name}' AS instrument, value AS visit_date, COALESCE(instance, 1) AS inst
-                        FROM redcap_data6
-                        WHERE project_id IN ({$projects}) AND field_name = '{$dateField}'
-                          AND value REGEXP '".self::DATE_RE."'";
-        }
-
-        return implode("\nUNION ALL\n", $parts);
-    }
-
     private function one(string $sql, array $bindings): object
     {
         return DB::selectOne($sql, $bindings);
     }
 
     // ------------------------------------------------------------------
-    // Group A: service access (1-3)
+    // AHP001-003: service access
     // ------------------------------------------------------------------
 
     private function accessIndicators(): array
@@ -231,69 +118,84 @@ class IndicatorService
     }
 
     // ------------------------------------------------------------------
-    // Group B: HIV testing (4-6) - union of all testing entry points (D2)
+    // AHP004-006: HIV testing - HTS register ONLY (kpq matrix)
     // ------------------------------------------------------------------
 
     private function hivTestingIndicators(): array
     {
         [$demog, $bind] = $this->demogSql();
+        $hts = $this->pivotSql(self::$P_ALL, [
+            'tested' => 'hts_tested', 'test_date' => 'hts_hiv_date', 'result' => 'hts_hiv_result',
+        ]);
+        $sti = $this->pivotSql(self::$P_ALL, ['tested' => 'sti_hiv_test', 'test_date' => 'sti_visit_date', 'result' => 'sti_hiv_test_result']);
+        $prep = $this->pivotSql(self::$P_ALL, ['tested' => 'prep_hiv_test', 'test_date' => 'prep_visit_date', 'result' => 'prep_hiv_test_results']);
+        $anc = $this->pivotSql(self::$P_FCH, ['result' => 'anc_hiv_test_results', 'test_date' => 'anc_date']);
+        $artrTest = $this->pivotSql(self::$P_ART, ['first_test' => 'artr_first_hiv_test']);
 
-        $hts = $this->pivotSql(self::P_ALL, ['tested' => 'hts_tested', 'test_date' => 'hts_hiv_date', 'result' => 'hts_hiv_result']);
-        $sti = $this->pivotSql(self::P_ALL, ['tested' => 'sti_hiv_test', 'test_date' => 'sti_visit_date', 'result' => 'sti_hiv_test_result']);
-        $prep = $this->pivotSql(self::P_ALL, ['tested' => 'prep_hiv_test', 'test_date' => 'prep_visit_date', 'result' => 'prep_hiv_test_results']);
-        $anc = $this->pivotSql(self::P_FCH, ['result' => 'anc_hiv_test_results', 'test_date' => 'anc_date']);
-
+        // Official AHP004-006 count the HTS register only; the "_all"
+        // supplementary set unions every documented testing entry point.
+        // artr_first_hiv_test is the confirmed test that led to enrolment
+        // in HIV care, so it counts as tested AND positive at that date.
         $row = $this->one("
-            WITH demog AS ({$demog}), tests AS (
-                SELECT record, test_date, result FROM ({$hts}) t WHERE tested = '1'
+            WITH demog AS ({$demog}), htsp AS ({$hts}), tests AS (
+                SELECT record, test_date, result FROM htsp t WHERE t.tested = '1'
                 UNION ALL
-                SELECT record, test_date, result FROM ({$sti}) t WHERE tested = '1'
+                SELECT record, test_date, result FROM ({$sti}) t WHERE t.tested = '1'
                 UNION ALL
-                SELECT record, test_date, result FROM ({$prep}) t WHERE tested = '1'
+                SELECT record, test_date, result FROM ({$prep}) t WHERE t.tested = '1'
                 UNION ALL
-                SELECT record, test_date, result FROM ({$anc}) t WHERE result IN ('P', 'N')
+                SELECT record, test_date, result FROM ({$anc}) t WHERE t.result IN ('P', 'N')
+                UNION ALL
+                SELECT record, first_test AS test_date, 'P' AS result FROM ({$artrTest}) t
+                WHERE t.first_test REGEXP '".self::$DATE_RE."'
             )
             SELECT
-              COUNT(DISTINCT CASE WHEN {$this->periodCond('t.test_date')} AND {$this->ageCond('t.test_date')} THEN t.record END) AS tested,
-              COUNT(DISTINCT CASE WHEN {$this->periodCond('t.test_date')} AND {$this->ageCond('t.test_date')} AND t.result = 'P' THEN t.record END) AS positive
-            FROM tests t
-            JOIN demog d ON d.record = t.record
+              (SELECT COUNT(DISTINCT t.record) FROM htsp t JOIN demog d ON d.record = t.record
+                WHERE t.tested = '1' AND {$this->periodCond('t.test_date')} AND {$this->ageCond('t.test_date')}) AS tested,
+              (SELECT COUNT(DISTINCT t.record) FROM htsp t JOIN demog d ON d.record = t.record
+                WHERE t.tested = '1' AND t.result = 'P' AND {$this->periodCond('t.test_date')} AND {$this->ageCond('t.test_date')}) AS positive,
+              (SELECT COUNT(DISTINCT t.record) FROM tests t JOIN demog d ON d.record = t.record
+                WHERE {$this->periodCond('t.test_date')} AND {$this->ageCond('t.test_date')}) AS tested_all,
+              (SELECT COUNT(DISTINCT t.record) FROM tests t JOIN demog d ON d.record = t.record
+                WHERE t.result = 'P' AND {$this->periodCond('t.test_date')} AND {$this->ageCond('t.test_date')}) AS positive_all
         ", $bind);
 
         return [
             'hiv_tested' => ['value' => (int) $row->tested],
             'hiv_positive' => ['value' => (int) $row->positive],
             'hiv_positivity' => $this->rate((int) $row->positive, (int) $row->tested),
+            'hiv_tested_all' => ['value' => (int) $row->tested_all],
+            'hiv_positive_all' => ['value' => (int) $row->positive_all],
+            'hiv_positivity_all' => $this->rate((int) $row->positive_all, (int) $row->tested_all),
         ];
     }
 
     // ------------------------------------------------------------------
-    // Group C: ART cascade (7-17) - home project 78 only
+    // AHP007-017: ART cascade
     // ------------------------------------------------------------------
 
     private function artIndicators(): array
     {
         [$demog, $bind] = $this->demogSql();
-        $art = $this->pivotSql(self::P_ART, [
+        $art = $this->pivotSql(self::$P_ART, [
             'visit_date' => 'art_review_date',
             'next_visit' => 'art_next_review_date',
             'outcome' => 'art_final_outcome',
-            'arv_status' => 'art_arv_status',
-            'arv_cat' => 'art_arv_category',
             'vl_done' => 'art_viral_load',
             'vl_date' => 'art_vl_collect_date',
             'vl_detected' => 'art_vl_detected',
             'vl_result' => 'art_vl_result',
         ]);
+        $hts = $this->pivotSql(self::$P_ALL, ['art_init' => 'hts_art_init', 'test_date' => 'hts_hiv_date']);
+        $artr = $this->pivotSql(self::$P_ART, ['referred' => 'artr_referred', 'reg_date' => 'artr_registration_date']);
 
-        $dateOk = "p.visit_date REGEXP '".self::DATE_RE."'";
-        $vlDate = 'COALESCE(NULLIF(p.vl_date, \'\'), p.visit_date)';
-        $vlNumeric = "(p.vl_result REGEXP '".self::NUM_RE."')";
+        $dateOk = "p.visit_date REGEXP '".self::$DATE_RE."'";
+        $vlDate = "COALESCE(NULLIF(p.vl_date, ''), p.visit_date)";
+        $vlNumeric = "(p.vl_result REGEXP '".self::$NUM_RE."')";
 
         $flow = $this->one("
             WITH demog AS ({$demog}), artp AS ({$art})
             SELECT
-              COUNT(DISTINCT CASE WHEN p.arv_cat = '8' AND {$this->periodCond('p.visit_date')} AND {$this->ageCond('p.visit_date')} THEN p.record END) AS ti,
               COUNT(DISTINCT CASE WHEN p.outcome = '4' AND {$this->periodCond('p.visit_date')} AND {$this->ageCond('p.visit_date')} THEN p.record END) AS tout,
               COUNT(DISTINCT CASE WHEN p.outcome = '5' AND {$this->periodCond('p.visit_date')} AND {$this->ageCond('p.visit_date')} THEN p.record END) AS died,
               COUNT(DISTINCT CASE WHEN p.vl_done = '1' AND {$this->periodCond($vlDate)} AND {$this->ageCond($vlDate)} THEN p.record END) AS vl_tested,
@@ -304,16 +206,25 @@ class IndicatorService
             JOIN demog d ON d.record = p.record
         ", $bind);
 
+        // AHP007: initiation per the HTS register (hts_art_init = Y).
         $init = $this->one("
-            WITH demog AS ({$demog}), artp AS ({$art}),
+            WITH demog AS ({$demog}), htsp AS ({$hts}),
             inits AS (
-                SELECT record, MIN(visit_date) AS init_dt
-                FROM artp WHERE arv_status = '2' AND visit_date REGEXP '".self::DATE_RE."'
+                SELECT record, MIN(test_date) AS init_dt
+                FROM htsp WHERE art_init = 'Y' AND test_date REGEXP '".self::$DATE_RE."'
                 GROUP BY record
             )
             SELECT COUNT(*) AS initiated
             FROM inits i JOIN demog d ON d.record = i.record
             WHERE {$this->periodCond('i.init_dt')} AND {$this->ageCond('i.init_dt')}
+        ", $bind);
+
+        // AHP011: transfer-in per the kpq matrix = artr_referred.
+        $ti = $this->one("
+            WITH demog AS ({$demog}), artrp AS ({$artr})
+            SELECT COUNT(DISTINCT p.record) AS ti
+            FROM artrp p JOIN demog d ON d.record = p.record
+            WHERE p.referred = '1' AND {$this->periodCond('p.reg_date')} AND {$this->ageCond('p.reg_date')}
         ", $bind);
 
         $status = $this->one("
@@ -324,23 +235,24 @@ class IndicatorService
             )
             SELECT
               COUNT(CASE WHEN (l.outcome IS NULL OR l.outcome NOT IN ('3','4','5','6'))
-                          AND l.next_visit REGEXP '".self::DATE_RE."'
+                          AND l.next_visit REGEXP '".self::$DATE_RE."'
                           AND DATE_ADD(l.next_visit, INTERVAL 28 DAY) >= '{$this->to}' THEN 1 END) AS tx_curr,
               COUNT(CASE WHEN (l.outcome IS NULL OR l.outcome NOT IN ('4','5'))
-                          AND l.next_visit REGEXP '".self::DATE_RE."'
+                          AND l.next_visit REGEXP '".self::$DATE_RE."'
                           AND DATE_ADD(l.next_visit, INTERVAL 28 DAY) < '{$this->to}' THEN 1 END) AS ltfu
             FROM latest l
             JOIN demog d ON d.record = l.record
             WHERE l.rn = 1 AND {$this->ageAtPeriodEnd()}
         ", $bind);
 
+        // AHP009: cohort = AHP007 initiations 12 months earlier; retained via ART visit history.
         $cohortFrom = date('Y-m-d', strtotime($this->from.' -12 months'));
         $cohortTo = date('Y-m-d', strtotime($this->to.' -12 months'));
         $retention = $this->one("
-            WITH demog AS ({$demog}), artp AS ({$art}),
+            WITH demog AS ({$demog}), artp AS ({$art}), htsp AS ({$hts}),
             inits AS (
-                SELECT record, MIN(visit_date) AS init_dt
-                FROM artp WHERE arv_status = '2' AND visit_date REGEXP '".self::DATE_RE."'
+                SELECT record, MIN(test_date) AS init_dt
+                FROM htsp WHERE art_init = 'Y' AND test_date REGEXP '".self::$DATE_RE."'
                 GROUP BY record
             )
             SELECT COUNT(*) AS cohort, COALESCE(SUM(t.retained), 0) AS retained
@@ -348,12 +260,12 @@ class IndicatorService
                 SELECT i.record,
                        CASE WHEN EXISTS (
                            SELECT 1 FROM artp v
-                           WHERE v.record = i.record AND v.visit_date REGEXP '".self::DATE_RE."'
+                           WHERE v.record = i.record AND v.visit_date REGEXP '".self::$DATE_RE."'
                              AND v.visit_date BETWEEN DATE_ADD(i.init_dt, INTERVAL 270 DAY) AND DATE_ADD(i.init_dt, INTERVAL 455 DAY)
                        ) AND NOT EXISTS (
                            SELECT 1 FROM artp o
                            WHERE o.record = i.record AND o.outcome IN ('4','5')
-                             AND o.visit_date REGEXP '".self::DATE_RE."'
+                             AND o.visit_date REGEXP '".self::$DATE_RE."'
                              AND o.visit_date <= DATE_ADD(i.init_dt, INTERVAL 365 DAY)
                        ) THEN 1 ELSE 0 END AS retained
                 FROM inits i
@@ -367,7 +279,7 @@ class IndicatorService
             'art_current' => ['value' => (int) $status->tx_curr],
             'art_retention' => $this->rate((int) $retention->retained, (int) $retention->cohort),
             'art_ltfu' => ['value' => (int) $status->ltfu],
-            'art_ti' => ['value' => (int) $flow->ti],
+            'art_ti' => ['value' => (int) $ti->ti],
             'art_to' => ['value' => (int) $flow->tout],
             'art_died' => ['value' => (int) $flow->died],
             'art_vl_tested' => ['value' => (int) $flow->vl_tested],
@@ -378,40 +290,41 @@ class IndicatorService
     }
 
     // ------------------------------------------------------------------
-    // Group D: ANC / delivery / PNC (18-28) - home project 76
+    // AHP018-028: ANC / delivery / PNC (interim PNCR proxies until the
+    // Labour & Delivery form is live - config('data6_indicators.ld'))
     // ------------------------------------------------------------------
 
     private function mnchIndicators(): array
     {
         [$demog, $bind] = $this->demogSql();
 
-        $ancr = $this->pivotSql(self::P_FCH, [
+        $ancr = $this->pivotSql(self::$P_FCH, [
             'reg_date' => 'ancr_date', 'first_booking' => 'ancr_first_booking',
-            'hiv_current' => 'ancr_hiv_current_status', 'contact_no' => 'ancr_contact_number',
+            'hiv_prior' => 'ancr_hiv_prior', 'contact_no' => 'ancr_contact_number',
         ]);
-        $anc = $this->pivotSql(self::P_FCH, ['visit_date' => 'anc_date', 'contact_no' => 'anc_contact_number']);
-        $pncr = $this->pivotSql(self::P_FCH, [
+        $anc = $this->pivotSql(self::$P_FCH, ['visit_date' => 'anc_date', 'contact_no' => 'anc_contact_number']);
+        $pncr = $this->pivotSql(self::$P_FCH, [
             'reg_date' => 'pncr_date', 'place' => 'pncr_place_of_delivery',
             'hiv_post' => 'pncr_hiv_status_post', 'on_art' => 'pncr_hiv_status_art',
             'baby_dob' => 'pncr_date_of_birth',
         ]);
-        $pncm = $this->pivotSql(self::P_FCH, [
+        $pncm = $this->pivotSql(self::$P_FCH, [
             'visit_date' => 'pncm_visit_date', 'follow_up' => 'pncm_mother_follow_up', 'hiv_tested' => 'pncm_hiv_tested',
         ]);
-        $pncb = $this->pivotSql(self::P_FCH, ['visit_date' => 'pncb_visit_date', 'infant_status' => 'pncb_infant_follow_ups']);
+        $pncb = $this->pivotSql(self::$P_FCH, ['visit_date' => 'pncb_visit_date', 'infant_status' => 'pncb_infant_follow_ups']);
 
         $ancRow = $this->one("
             WITH demog AS ({$demog}), ancrp AS ({$ancr})
             SELECT
-              COUNT(CASE WHEN p.first_booking = '1' AND {$this->periodCond('p.reg_date')} AND {$this->ageCond('p.reg_date')} THEN 1 END) AS new_bookings,
-              COUNT(CASE WHEN p.first_booking = '1' AND p.hiv_current IN ('0','1') AND {$this->periodCond('p.reg_date')} AND {$this->ageCond('p.reg_date')} THEN 1 END) AS first_tested
+              COUNT(DISTINCT CASE WHEN p.first_booking = '1' AND {$this->periodCond('p.reg_date')} AND {$this->ageCond('p.reg_date')} THEN p.record END) AS new_bookings,
+              COUNT(DISTINCT CASE WHEN p.first_booking = '1' AND p.hiv_prior IN ('0','1') AND {$this->periodCond('p.reg_date')} AND {$this->ageCond('p.reg_date')} THEN p.record END) AS first_tested
             FROM ancrp p JOIN demog d ON d.record = p.record
         ", $bind);
 
         $pncrRow = $this->one("
             WITH demog AS ({$demog}), pncrp AS ({$pncr}),
             contacts AS (
-                SELECT record, MAX(CASE WHEN contact_no REGEXP '".self::NUM_RE."' THEN CAST(contact_no AS UNSIGNED) ELSE 0 END) AS max_contact
+                SELECT record, MAX(CASE WHEN contact_no REGEXP '".self::$NUM_RE."' THEN CAST(contact_no AS UNSIGNED) ELSE 0 END) AS max_contact
                 FROM (
                     SELECT record, contact_no FROM ({$ancr}) a
                     UNION ALL
@@ -420,7 +333,7 @@ class IndicatorService
             ),
             pnc72 AS (SELECT DISTINCT m.record FROM ({$pncm}) m
                       JOIN pncrp r ON r.record = m.record
-                      WHERE m.visit_date REGEXP '".self::DATE_RE."' AND r.baby_dob REGEXP '".self::DATE_RE."'
+                      WHERE m.visit_date REGEXP '".self::$DATE_RE."' AND r.baby_dob REGEXP '".self::$DATE_RE."'
                         AND DATEDIFF(m.visit_date, r.baby_dob) BETWEEN 0 AND 3)
             SELECT
               COUNT(CASE WHEN {$this->periodCond('p.reg_date')} AND {$this->ageCond('p.reg_date')} THEN 1 END) AS deliveries,
@@ -439,7 +352,7 @@ class IndicatorService
 
         $deathRow = $this->one("
             WITH demog AS ({$demog}), pncmp AS ({$pncm}), pncbp AS ({$pncb}),
-            babydob AS (SELECT record, MAX(baby_dob) AS baby_dob FROM ({$pncr}) r WHERE baby_dob REGEXP '".self::DATE_RE."' GROUP BY record)
+            babydob AS (SELECT record, MAX(baby_dob) AS baby_dob FROM ({$pncr}) r WHERE baby_dob REGEXP '".self::$DATE_RE."' GROUP BY record)
             SELECT
               (SELECT COUNT(DISTINCT m.record) FROM pncmp m JOIN demog d ON d.record = m.record
                 WHERE m.follow_up = '5' AND {$this->periodCond('m.visit_date')}) AS maternal_deaths,
@@ -447,7 +360,7 @@ class IndicatorService
                  JOIN demog d ON d.record = b.record
                  JOIN babydob bd ON bd.record = b.record
                 WHERE b.infant_status = '6' AND {$this->periodCond('b.visit_date')}
-                  AND b.visit_date REGEXP '".self::DATE_RE."'
+                  AND b.visit_date REGEXP '".self::$DATE_RE."'
                   AND DATEDIFF(b.visit_date, bd.baby_dob) BETWEEN 0 AND 7) AS neonatal_deaths
         ", $bind);
 
@@ -478,20 +391,17 @@ class IndicatorService
     }
 
     // ------------------------------------------------------------------
-    // Group E+F: family planning (29-30, project 76) and PrEP (31-34, union)
+    // AHP029-034: family planning and PrEP
     // ------------------------------------------------------------------
 
     private function fpPrepIndicators(): array
     {
         [$demog, $bind] = $this->demogSql();
 
-        $fp = $this->pivotSql(self::P_FCH, ['visit_date' => 'fp_date', 'category' => 'fp_client_category']);
-        $prepr = $this->pivotSql(self::P_ALL, [
+        $fp = $this->pivotSql(self::$P_FCH, ['visit_date' => 'fp_date', 'category' => 'fp_client_category']);
+        $prepr = $this->pivotSql(self::$P_ALL, [
             'reg_date' => 'prepr_date', 'screened' => 'prepr_screened', 'visit_status' => 'prepr_visit_status',
             'initiate' => 'prepr_prep_initiate', 'start_date' => 'prepr_prep_start_date',
-        ]);
-        $prep = $this->pivotSql(self::P_ALL, [
-            'visit_date' => 'prep_visit_date', 'follow_status' => 'prep_follow_up_status', 'outcome' => 'prep_client_outcome',
         ]);
 
         $fpRow = $this->one("
@@ -502,26 +412,17 @@ class IndicatorService
             FROM fpp p JOIN demog d ON d.record = p.record
         ", $bind);
 
+        // kpq matrix: initiation via visit_status N (or explicit initiate flag);
+        // continuing = C + N; discontinued = D - all from the PrEP register.
         $initDate = "COALESCE(NULLIF(p.start_date, ''), p.reg_date)";
         $prepRow = $this->one("
-            WITH demog AS ({$demog}), preprp AS ({$prepr}), prepp AS ({$prep})
+            WITH demog AS ({$demog}), preprp AS ({$prepr})
             SELECT
-              (SELECT COUNT(DISTINCT p.record) FROM preprp p JOIN demog d ON d.record = p.record
-                WHERE p.screened = '1' AND {$this->periodCond('p.reg_date')} AND {$this->ageCond('p.reg_date')}) AS screened,
-              (SELECT COUNT(DISTINCT p.record) FROM preprp p JOIN demog d ON d.record = p.record
-                WHERE (p.visit_status = 'N' OR p.initiate = '1') AND {$this->periodCond($initDate)} AND {$this->ageCond($initDate)}) AS initiated,
-              (SELECT COUNT(DISTINCT r.record) FROM (
-                  SELECT p.record, p.reg_date AS dt FROM preprp p WHERE p.visit_status = 'C'
-                  UNION ALL
-                  SELECT p.record, p.visit_date AS dt FROM prepp p WHERE p.follow_status = 'Px'
-              ) r JOIN demog d ON d.record = r.record
-                WHERE {$this->periodCond('r.dt')} AND {$this->ageCond('r.dt')}) AS continuing,
-              (SELECT COUNT(DISTINCT r.record) FROM (
-                  SELECT p.record, p.reg_date AS dt FROM preprp p WHERE p.visit_status = 'D'
-                  UNION ALL
-                  SELECT p.record, p.visit_date AS dt FROM prepp p WHERE p.outcome = '3' OR p.follow_status IN ('OO', 'WTH')
-              ) r JOIN demog d ON d.record = r.record
-                WHERE {$this->periodCond('r.dt')} AND {$this->ageCond('r.dt')}) AS discontinued
+              COUNT(DISTINCT CASE WHEN p.screened = '1' AND {$this->periodCond('p.reg_date')} AND {$this->ageCond('p.reg_date')} THEN p.record END) AS screened,
+              COUNT(DISTINCT CASE WHEN (p.visit_status = 'N' OR p.initiate = '1') AND {$this->periodCond($initDate)} AND {$this->ageCond($initDate)} THEN p.record END) AS initiated,
+              COUNT(DISTINCT CASE WHEN p.visit_status IN ('C', 'N') AND {$this->periodCond('p.reg_date')} AND {$this->ageCond('p.reg_date')} THEN p.record END) AS continuing,
+              COUNT(DISTINCT CASE WHEN p.visit_status = 'D' AND {$this->periodCond('p.reg_date')} AND {$this->ageCond('p.reg_date')} THEN p.record END) AS discontinued
+            FROM preprp p JOIN demog d ON d.record = p.record
         ", $bind);
 
         return [
@@ -535,14 +436,13 @@ class IndicatorService
     }
 
     // ------------------------------------------------------------------
-    // Group G: mental health & substance use (35-40) - no date field on the
-    // MH instrument, so the period filter cannot apply (all-time values).
+    // AHP035-040: mental health & substance use (no date field: all-time)
     // ------------------------------------------------------------------
 
     private function mentalHealthIndicators(): array
     {
         [$demog, $bind] = $this->demogSql();
-        $mh = $this->pivotSql(self::P_ALL, [
+        $mh = $this->pivotSql(self::$P_ALL, [
             'screened' => 'mh_screening_tools', 'result' => 'mh_screening_results',
             'managed' => 'mh_management_outcome', 'substance' => 'mh_substance_identified',
         ]);
@@ -572,13 +472,13 @@ class IndicatorService
     }
 
     // ------------------------------------------------------------------
-    // Group H: STI (41-42) - shared instrument, union + distinct record
+    // AHP041-042: STI
     // ------------------------------------------------------------------
 
     private function stiIndicators(): array
     {
         [$demog, $bind] = $this->demogSql();
-        $sti = $this->pivotSql(self::P_ALL, [
+        $sti = $this->pivotSql(self::$P_ALL, [
             'visit_date' => 'sti_visit_date', 'alt_date' => 'sti_date', 'treated' => 'sti_patient_treated',
         ]);
         $dt = "COALESCE(NULLIF(p.visit_date, ''), p.alt_date)";
@@ -598,13 +498,13 @@ class IndicatorService
     }
 
     // ------------------------------------------------------------------
-    // Group I: peer support (43-45) - sums, deduplicated across mirrors
+    // AHP043-045: peer support (sums, deduplicated across mirrors)
     // ------------------------------------------------------------------
 
     private function peerIndicators(): array
     {
         [$demog, $bind] = $this->demogSql();
-        $pls = $this->pivotSql(self::P_ALL, [
+        $pls = $this->pivotSql(self::$P_ALL, [
             'session_date' => 'pls_date', 'conducted' => 'pls_session_conducted',
             'sessions' => 'pls_number', 'reached' => 'pls_ado_number', 'support' => 'pls_support_conducted',
         ]);
@@ -613,8 +513,8 @@ class IndicatorService
             WITH demog AS ({$demog}),
             plsp AS (SELECT DISTINCT record, session_date, inst, conducted, sessions, reached, support FROM ({$pls}) raw)
             SELECT
-              SUM(CASE WHEN p.conducted = '1' AND {$this->periodCond('p.session_date')} AND p.sessions REGEXP '".self::NUM_RE."' THEN CAST(p.sessions AS UNSIGNED) ELSE 0 END) AS sessions,
-              SUM(CASE WHEN p.conducted = '1' AND {$this->periodCond('p.session_date')} AND p.reached REGEXP '".self::NUM_RE."' THEN CAST(p.reached AS UNSIGNED) ELSE 0 END) AS reached,
+              SUM(CASE WHEN p.conducted = '1' AND {$this->periodCond('p.session_date')} AND p.sessions REGEXP '".self::$NUM_RE."' THEN CAST(p.sessions AS UNSIGNED) ELSE 0 END) AS sessions,
+              SUM(CASE WHEN p.conducted = '1' AND {$this->periodCond('p.session_date')} AND p.reached REGEXP '".self::$NUM_RE."' THEN CAST(p.reached AS UNSIGNED) ELSE 0 END) AS reached,
               COUNT(CASE WHEN p.support = '1' AND {$this->periodCond('p.session_date')} THEN 1 END) AS support_groups
             FROM plsp p
             JOIN demog d ON d.record = p.record

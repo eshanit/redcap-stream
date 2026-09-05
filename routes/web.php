@@ -10,6 +10,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Projects\Data6\IndicatorDashboardController as Data6IndicatorDashboardController;
 use App\Http\Controllers\Projects\Data6\OverviewDashboardController as Data6OverviewDashboardController;
 use App\Http\Controllers\Projects\Data6\ProjectDashboardController as Data6ProjectDashboardController;
+use App\Http\Controllers\Projects\Data6\ReportController as Data6ReportController;
 use App\Http\Controllers\Projects\AHP as AHPControllers;
 use App\Http\Controllers\Projects\NCD as NCDControllers;
 use App\Http\Controllers\Projects\NCDPPlus as NCDPPlusControllers;
@@ -33,6 +34,7 @@ Route::middleware('auth')->group(function () {
 
     Route::get('data6', Data6OverviewDashboardController::class)->name('data6.dashboard');
     Route::get('data6/indicators', [Data6IndicatorDashboardController::class, 'index'])->name('data6.indicators');
+    Route::get('data6/reports', [Data6ReportController::class, 'index'])->name('data6.reports');
     Route::get('data6/flow', Data6ProjectDashboardController::class)->name('data6.flow');
     Route::get('data6/project/{project_id}', Data6ProjectDashboardController::class)->name('data6.project.dashboard');
 
@@ -169,6 +171,10 @@ Route::middleware('auth')->group(function () {
             ->name('api.data6.indicators');
         Route::get('data6/records-export', [Data6OverviewDashboardController::class, 'exportRecords'])
             ->name('api.data6.records.export');
+        Route::get('data6/reports', [Data6ReportController::class, 'data'])
+            ->name('api.data6.reports.data');
+        Route::get('data6/reports/excel', [Data6ReportController::class, 'excel'])
+            ->name('api.data6.reports.excel');
         Route::get('data6/patient/{patient}/timeline', [Data6ProjectDashboardController::class, 'timeline'])
             ->name('api.data6.patient.timeline');
         Route::get('data6/report', [Data6ProjectDashboardController::class, 'report'])

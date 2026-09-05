@@ -1,5 +1,7 @@
 # AHP Indicator Dashboard Plan (Data6)
 
+> **UPDATE 2026-09-05:** the revised matrix `data/20260905_AHP_ Indicators_kpq.xlsx` (with real field names per indicator) is implemented: registry v2 in `config/data6_indicators.php`, revised definitions in `app/Services/Data6/IndicatorService.php`, disaggregated M&E reports (age band/sex/facility/district) in `ReportService` + `/data6/reports` with Excel export. Key definition changes: HIV testing = HTS register only; ART initiation = `hts_art_init`; transfer-in = `artr_referred`; first-ANC testing = `ancr_hiv_prior`; PrEP continuing includes newly initiated. A Labour & Delivery form (`ld_*`) will replace the PNCR interim proxies for AHP020–028 once live (`ld.enabled` config switch; choice codes to confirm against its dictionary).
+
 **Goal:** deliver the 45 AHP indicators defined in `data/20260715_AHP_ Indicators.xlsx` as a comprehensive, filterable dashboard on top of the `redcap_data6` projects (76 FCH, 78 OI/ART, 79 OPD), building on the tracking layer already established (`data6_source_records`, `data6_patients`, `data6_patient_source_records`, `data6_encounters`).
 
 This plan supersedes the indicator sections of `PROJECT_DATA6_ONBOARDING_PLAN.md` and `plan_update_1.md` where it conflicts with what the actual dump shows; the architectural rules in those documents (read-only source, canonical patient, service layer, no PII in aggregates) remain in force.

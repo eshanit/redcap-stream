@@ -1,5 +1,9 @@
 # Data6 AHP Dashboard — Decisions Needed from the Programme Team
 
+> **STATUS UPDATE (2026-09-05):** the revised matrix `data/20260905_AHP_ Indicators_kpq.xlsx` resolved most of these decisions and is now implemented:
+> **D1 resolved** — adolescent = 10–19 at service date, bands 10–14/15–19. **D2 resolved** — HTS register only. **D3 resolved** — initiation = `hts_art_init` (HTS-3); re-initiation/TI exclusions noted as not machine-checkable in HTS. **D5 resolved forward** — a Labour & Delivery form (`ld_*` fields) is being deployed; PNCR proxies stay as interim until it is live (`config/data6_indicators.php` → `ld.enabled`). **D6 resolved** — BBA counts within home deliveries. **D7 resolved** — documented prior status (`ancr_hiv_prior`) at first booking. **D9 resolved** — substance screening = MH screening (MH-0).
+> **Still open:** D4 (per-registration pregnancy grouping), D8 (breastfeeding join), D10 & AHP042 (matrix lists N/A — proxies applied), D11 (support-group count field), and one new gap: the **MH instrument has no date field**, so AHP035–040 cannot be filtered to a reporting period despite the matrix expecting Monthly/Quarterly — a `mh_date` field is the fix.
+
 **Date:** 2026-09-02 · **Refers to:** `docs/plan_ahp_dashboard.md` and `data/20260715_AHP_ Indicators.xlsx`
 
 The technical foundation for the AHP indicator dashboard is settled (project split history, record continuity from project 48, deduplication rules). What remains are **programme-level definitions** that only the team can decide. Eleven questions, grouped below. Each one blocks specific indicators; everything else can proceed.

@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Head } from '@inertiajs/vue3';
-import { AlertTriangle, CircleAlert, Download, Info, RefreshCw } from 'lucide-vue-next';
+import { Link } from '@inertiajs/vue3';
+import { AlertTriangle, CircleAlert, Download, FileSpreadsheet, Info, RefreshCw } from 'lucide-vue-next';
 import { computed, onMounted, ref } from 'vue';
 import VueApexCharts from 'vue3-apexcharts';
 import { type BreadcrumbItem } from '@/types';
 
 interface IndicatorMeta {
     id: number;
+    code?: string;
     key: string;
     group: string;
     type: 'count' | 'percent' | 'sum';
@@ -202,6 +204,9 @@ function exportCsv(): void {
                         </p>
                     </div>
                     <div class="flex items-center gap-2">
+                        <Link href="/data6/reports" class="inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-4 py-2 text-xs font-bold text-[#3c605b] transition hover:bg-white">
+                            <FileSpreadsheet class="size-3.5" />M&amp;E reports
+                        </Link>
                         <button class="inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-4 py-2 text-xs font-bold text-[#3c605b] transition hover:bg-white" @click="exportCsv">
                             <Download class="size-3.5" />Export CSV
                         </button>
@@ -288,7 +293,7 @@ function exportCsv(): void {
                             <div>
                                 <div class="flex items-start justify-between gap-2">
                                     <h3 class="text-[13px] font-bold leading-snug text-[#244847]">
-                                        <span class="mr-1.5 font-mono text-[10px] text-[#898781]">{{ meta.id }}</span>{{ meta.label }}
+                                        <span class="mr-1.5 font-mono text-[10px] text-[#898781]">{{ meta.code ?? meta.id }}</span>{{ meta.label }}
                                     </h3>
                                     <span v-if="statusBadges[meta.status]"
                                         class="shrink-0 rounded-full px-2 py-0.5 text-[9.5px] font-bold uppercase tracking-wide"

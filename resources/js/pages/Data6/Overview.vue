@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Head, Link } from '@inertiajs/vue3';
-import { Activity, ArrowRight, BarChart3, CircleAlert, Download, GitMerge, MapPin, Users } from 'lucide-vue-next';
+import { Activity, ArrowRight, BarChart3, CircleAlert, Download, FileSpreadsheet, GitMerge, MapPin, Users } from 'lucide-vue-next';
 import { computed } from 'vue';
 import VueApexCharts from 'vue3-apexcharts';
 import { type BreadcrumbItem } from '@/types';
@@ -111,6 +111,10 @@ const trendOptions = computed(() => ({
                     <div class="flex flex-col gap-2 sm:flex-row">
                         <Link href="/data6/indicators" class="group inline-flex items-center gap-2 rounded-full bg-[#173b3b] px-5 py-2.5 text-xs font-bold text-white transition hover:bg-[#285655]">
                             <BarChart3 class="size-4" />AHP indicator dashboard
+                            <ArrowRight class="size-3.5 transition group-hover:translate-x-0.5" />
+                        </Link>
+                        <Link href="/data6/reports" class="group inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-5 py-2.5 text-xs font-bold text-[#3c605b] transition hover:bg-white">
+                            <FileSpreadsheet class="size-4" />M&amp;E reports
                             <ArrowRight class="size-3.5 transition group-hover:translate-x-0.5" />
                         </Link>
                         <Link href="/data6/flow" class="group inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-5 py-2.5 text-xs font-bold text-[#3c605b] transition hover:bg-white">
