@@ -842,5 +842,11 @@ The immutable REDCap source identity is `project_id + record`. It is retained se
 
 The application read model contains source records, canonical patients, patient-to-source-record links, and encounters. An encounter represents one service occurrence and is grouped by `project_id + record + event_id + form_name + normalized_instance`; it stores the service, subject type, raw instance, normalized instance, business date, and references to the original `redcap_data6` rows. Mother-baby records retain separate mother and baby subjects, with `pncr_mother_baby` stored as the pair relationship identifier.
 
+### Manager Reporting Rules
+
+The primary reporting unit is a unique canonical patient, not a raw REDCap record and not a count of long-format rows. Reports group by facility, service, reporting period, and subject type. STI patients at one facility in one quarter must be counted distinctly across FCH, OI/ART, and OPD; project totals must never simply be added together.
+
+Reports must show unresolved source records, uncertain identity links, missing facilities, and missing or invalid service dates as data-quality warnings. The patient timeline is a drill-down used to explain an aggregate; the primary dashboard workflow is facility, service, and period analysis.
+
 ---
 

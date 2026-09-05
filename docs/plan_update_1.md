@@ -76,6 +76,14 @@ Patient tracking uses two identities. The immutable source identity is `project_
 
 The analytics read model contains `data6_source_records`, `data6_patients`, `data6_patient_source_records`, and `data6_encounters`. The first synchronization creates one canonical patient for each source record. Cross-project links can subsequently be added only through a confirmed identifier or a reviewed match. Mother-baby data retains separate mother and baby subjects and uses `pncr_mother_baby` as the pair relationship identifier, not as a replacement for patient identity.
 
+### Manager Reporting Model
+
+The primary dashboard audience is project managers. The main reporting unit is a **unique canonical patient**, grouped by facility, service, and reporting period. For example: “How many unique patients accessed STI at facility X during quarter Y?”
+
+Reports must use `COUNT(DISTINCT canonical_patient_id)` after joining encounters through the patient/source-record link. They must never add counts from projects 76, 78, and 79, because one patient may appear in more than one project. Each report must show the matching scope, unresolved source records, and the rule used for date and facility selection.
+
+Required dimensions are facility, service/instrument family, project where needed, calendar period based on the authoritative business date, and subject type, especially client versus mother versus baby. Facility/service/period analysis is the primary dashboard workflow; patient timeline lookup is a secondary drill-down for investigating a count.
+
 ---
 
 ## 2. Architectural Decisions

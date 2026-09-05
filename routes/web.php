@@ -7,6 +7,8 @@ use App\Http\Controllers\CustomizedPackages\NCD\Appointments\ReviewController;
 use App\Http\Controllers\CustomizedPackages\RequestController as RequestController;
 use App\Http\Controllers\CustomizedPackages\NCDPPlus\CoreIndicators as CoreIndicatorsControllers;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\Projects\Data6\IndicatorDashboardController as Data6IndicatorDashboardController;
+use App\Http\Controllers\Projects\Data6\OverviewDashboardController as Data6OverviewDashboardController;
 use App\Http\Controllers\Projects\Data6\ProjectDashboardController as Data6ProjectDashboardController;
 use App\Http\Controllers\Projects\AHP as AHPControllers;
 use App\Http\Controllers\Projects\NCD as NCDControllers;
@@ -29,7 +31,9 @@ Route::middleware('auth')->group(function () {
     })->name('under.construction');
     Route::get('project/{project_id}/questionnaire/{field_name}/data', GetFieldNameData::class)->name('item.data');
 
-    Route::get('data6', Data6ProjectDashboardController::class)->name('data6.dashboard');
+    Route::get('data6', Data6OverviewDashboardController::class)->name('data6.dashboard');
+    Route::get('data6/indicators', [Data6IndicatorDashboardController::class, 'index'])->name('data6.indicators');
+    Route::get('data6/flow', Data6ProjectDashboardController::class)->name('data6.flow');
     Route::get('data6/project/{project_id}', Data6ProjectDashboardController::class)->name('data6.project.dashboard');
 
     // Project NCD
@@ -161,8 +165,14 @@ Route::middleware('auth')->group(function () {
 
     // API Endpoints for lazy-loaded data (NCD Appointments Review)
     Route::group(['prefix' => 'api'], function () {
+        Route::get('data6/indicators', [Data6IndicatorDashboardController::class, 'data'])
+            ->name('api.data6.indicators');
+        Route::get('data6/records-export', [Data6OverviewDashboardController::class, 'exportRecords'])
+            ->name('api.data6.records.export');
         Route::get('data6/patient/{patient}/timeline', [Data6ProjectDashboardController::class, 'timeline'])
             ->name('api.data6.patient.timeline');
+        Route::get('data6/report', [Data6ProjectDashboardController::class, 'report'])
+            ->name('api.data6.report');
         Route::post('data6/patient/{patient}/source-record/{sourceRecord}', [Data6ProjectDashboardController::class, 'linkSourceRecord'])
             ->name('api.data6.patient.source-record.link');
         Route::get('project/{project_id}/appointment_reviews/all_visits', [ReviewController::class, 'getAllVisits'])->name('api.appointment.reviews.all_visits');

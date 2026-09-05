@@ -139,6 +139,7 @@ class ProjectData6Service
                         'redcap_record' => $record,
                         'event_id' => $eventId,
                         'arm_id' => $armId,
+                        'facility' => $rows->firstWhere('field_name', 'demog_facility')?->value,
                         'instrument' => $instrumentKey,
                         'service' => self::INSTRUMENTS[$instrumentKey],
                         'subject_type' => $this->subjectType($instrumentKey),
@@ -165,6 +166,26 @@ class ProjectData6Service
             ->orderBy('instrument')
             ->orderBy('normalized_instance')
             ->get();
+    }
+
+    public function serviceReport(?array $projectIds = null, ?string $service = null, ?string $facility = null, ?string $from = null, ?string $to = null)
+    {
+        $query = Data6Encounter::query()
+            ->join('data6_patient_source_records', 'data6_patient_source_records.source_record_id', '=', 'data6_encounters.source_record_id')
+            ->select('data6_encounters.facility', 'data6_encounters.service')
+            ->selectRaw('COUNT(DISTINCT data6_patient_source_records.patient_id) AS unique_patients')
+            ->selectRaw('COUNT(DISTINCT data6_encounters.project_id) AS projects_represented')
+            ->groupBy('data6_encounters.facility', 'data6_encounters.service')
+            ->orderBy('data6_encounters.facility')
+            ->orderBy('data6_encounters.service');
+
+        if ($projectIds !== null) $query->whereIn('data6_encounters.project_id', $projectIds);
+        if ($service !== null) $query->where('data6_encounters.instrument', $service);
+        if ($facility !== null) $query->where('data6_encounters.facility', $facility);
+        if ($from !== null) $query->whereDate('data6_encounters.service_date', '>=', $from);
+        if ($to !== null) $query->whereDate('data6_encounters.service_date', '<=', $to);
+
+        return $query->get();
     }
 
     public function linkSourceRecord(

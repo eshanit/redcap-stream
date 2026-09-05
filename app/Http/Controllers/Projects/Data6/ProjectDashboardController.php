@@ -7,6 +7,7 @@ use App\Models\Data6Patient;
 use App\Models\Data6SourceRecord;
 use App\Services\ProjectData6Service;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class ProjectDashboardController extends Controller
@@ -43,6 +44,28 @@ class ProjectDashboardController extends Controller
                 'redcap_record',
             ]),
             'encounters' => $data6Service->timeline($patient),
+        ]);
+    }
+
+    public function report(Request $request, ProjectData6Service $data6Service)
+    {
+        $validated = $request->validate([
+            'project_id' => ['nullable', 'integer', Rule::in($data6Service->data6ProjectIds())],
+            'service' => ['nullable', 'string', 'max:100'],
+            'facility' => ['nullable', 'string', 'max:100'],
+            'from' => ['nullable', 'date_format:Y-m-d'],
+            'to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:from'],
+        ]);
+
+        return response()->json([
+            'filters' => $validated,
+            'rows' => $data6Service->serviceReport(
+                isset($validated['project_id']) ? [(int) $validated['project_id']] : null,
+                $validated['service'] ?? null,
+                $validated['facility'] ?? null,
+                $validated['from'] ?? null,
+                $validated['to'] ?? null,
+            ),
         ]);
     }
 

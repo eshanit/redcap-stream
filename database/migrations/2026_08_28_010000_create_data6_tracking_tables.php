@@ -39,6 +39,7 @@ return new class extends Migration
             $table->string('redcap_record', 100);
             $table->unsignedInteger('event_id')->nullable();
             $table->unsignedInteger('arm_id')->nullable();
+            $table->string('facility', 100)->nullable();
             $table->string('instrument', 100);
             $table->string('service', 100);
             $table->string('subject_type', 30)->default('client');
