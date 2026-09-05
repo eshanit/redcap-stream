@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Head } from '@inertiajs/vue3';
-import { AlertTriangle, CircleAlert, Download, FileSpreadsheet, RefreshCw } from 'lucide-vue-next';
+import { AlertTriangle, ChevronDown, CircleAlert, Download, FileSpreadsheet, HelpCircle, RefreshCw } from 'lucide-vue-next';
 import { computed, onMounted, ref } from 'vue';
 import { type BreadcrumbItem } from '@/types';
 
@@ -14,7 +14,23 @@ interface ReportRow {
     by: Record<string, Bucket[]>;
 }
 
-const props = defineProps<{ appTitle: string; registry: { groups: GroupMeta[] } }>();
+const props = defineProps<{
+    appTitle: string;
+    registry: { groups: GroupMeta[]; methods?: Record<string, string>; method_common?: string; indicators?: { key: string; variables: string | null }[] };
+}>();
+
+const expanded = ref<Set<string>>(new Set());
+function toggleMethod(code: string): void {
+    const next = new Set(expanded.value);
+    if (next.has(code)) next.delete(code); else next.add(code);
+    expanded.value = next;
+}
+function methodFor(row: ReportRow): string | null {
+    return props.registry.methods?.[row.key] ?? null;
+}
+function variablesFor(row: ReportRow): string | null {
+    return props.registry.indicators?.find((i) => i.key === row.key)?.variables ?? null;
+}
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
     { title: 'AHP overview', href: '/data6' },
@@ -151,6 +167,14 @@ const statusBadges: Record<string, { label: string; cls: string }> = {
                     <span class="text-xs font-semibold text-[#7b8984]">{{ from }} → {{ to }}</span>
                 </section>
 
+                <details v-if="registry.method_common" class="mt-4 border border-[#d9ded7] bg-[#fcfcfb] px-4 py-3">
+                    <summary class="flex cursor-pointer items-center gap-2 text-xs font-bold text-[#244847]">
+                        <HelpCircle class="size-4 text-[#e2644b]" />How this report is calculated — rules that apply to every indicator
+                    </summary>
+                    <p class="mt-2 max-w-4xl text-xs leading-5 text-[#60716d]">{{ registry.method_common }}</p>
+                    <p class="mt-1 text-xs text-[#7b8984]">Each indicator row has its own <strong>“How we calculated this”</strong> toggle showing the exact fields and rule used.</p>
+                </details>
+
                 <div v-if="error" class="mt-5 flex items-center gap-2 bg-[#fff1ed] px-4 py-3 text-sm text-[#b74f3d]">
                     <CircleAlert class="size-4 shrink-0" />{{ error }}
                 </div>
@@ -178,10 +202,15 @@ const statusBadges: Record<string, { label: string; cls: string }> = {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr v-for="row in group.rows" :key="row.code" class="border-b border-[#eef0eb] text-[#365652] last:border-0">
+                                    <template v-for="row in group.rows" :key="row.code">
+                                    <tr class="border-b border-[#eef0eb] text-[#365652]" :class="expanded.has(row.code) ? 'border-b-0 bg-[#f7f8f4]' : ''">
                                         <td class="px-3 py-2 font-mono text-[10.5px] text-[#82908a]">{{ row.code }}</td>
                                         <td class="max-w-[340px] px-3 py-2 font-semibold text-[#244847]">
-                                            {{ row.label }}
+                                            <button v-if="methodFor(row)" class="group flex items-start gap-1 text-left" :aria-expanded="expanded.has(row.code)" @click="toggleMethod(row.code)">
+                                                <span class="underline decoration-[#cbd3cd] decoration-dotted underline-offset-2 group-hover:decoration-[#e2644b]">{{ row.label }}</span>
+                                                <ChevronDown class="mt-0.5 size-3 shrink-0 text-[#a6b1aa] transition" :class="expanded.has(row.code) ? 'rotate-180' : ''" />
+                                            </button>
+                                            <template v-else>{{ row.label }}</template>
                                             <p v-if="row.note" class="mt-0.5 flex items-start gap-1 text-[10px] font-normal leading-3.5 text-[#a87524]">
                                                 <AlertTriangle class="mt-px size-2.5 shrink-0" />{{ row.note }}
                                             </p>
@@ -201,6 +230,20 @@ const statusBadges: Record<string, { label: string; cls: string }> = {
                                             <span v-if="row.no_period" class="ml-1 rounded-full bg-[#e7eef4] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#31577a]" title="Instrument has no date field — value is all-time">All-time</span>
                                         </td>
                                     </tr>
+                                    <tr v-if="expanded.has(row.code)" class="border-b border-[#eef0eb] bg-[#f7f8f4]">
+                                        <td></td>
+                                        <td colspan="8" class="px-3 pb-3 pt-0">
+                                            <div class="border-l-2 border-[#e2644b] py-1 pl-3">
+                                                <p class="text-[10px] font-bold uppercase tracking-wider text-[#82908a]">How we calculated this</p>
+                                                <p class="mt-1 max-w-4xl text-[11.5px] leading-5 text-[#52655f]">{{ methodFor(row) }}</p>
+                                                <p v-if="variablesFor(row)" class="mt-1.5 text-[10.5px] text-[#7b8984]">
+                                                    <span class="font-bold uppercase tracking-wider">Fields:</span>
+                                                    <span class="ml-1 font-mono">{{ variablesFor(row) }}</span>
+                                                </p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    </template>
                                 </tbody>
                             </table>
                         </div>

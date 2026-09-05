@@ -118,17 +118,24 @@ class ReportWorkbook
     {
         $registry = collect(config('data6_indicators.indicators'))->keyBy('code');
 
-        $sheet->setTitle('Definitions');
-        $sheet->fromArray(['Code', 'Indicator', 'Definition applied', 'REDCap variables', 'Status', 'Note'], null, 'A1');
-        $this->styleHeader($sheet, 1, 6);
+        $methods = config('data6_indicators.methods', []);
 
-        $r = 2;
+        $sheet->setTitle('Definitions');
+        $sheet->setCellValue('A1', 'Common rules: '.config('data6_indicators.method_common', ''));
+        $sheet->mergeCells('A1:G1');
+        $sheet->getStyle('A1')->getAlignment()->setWrapText(true)->setVertical(Alignment::VERTICAL_TOP);
+        $sheet->getRowDimension(1)->setRowHeight(64);
+        $sheet->fromArray(['Code', 'Indicator', 'Definition applied', 'How it was calculated', 'REDCap variables', 'Status', 'Note'], null, 'A2');
+        $this->styleHeader($sheet, 2, 7);
+
+        $r = 3;
         foreach ($report as $ind) {
             $meta = $registry->get($ind['code'], []);
             $sheet->fromArray([
                 $ind['code'],
                 $ind['label'],
                 $meta['definition'] ?? '',
+                $methods[$ind['key']] ?? '',
                 $meta['variables'] ?? '',
                 $ind['status'],
                 $ind['note'] ?? '',
@@ -136,11 +143,11 @@ class ReportWorkbook
             $r++;
         }
 
-        foreach (['A' => 10, 'B' => 44, 'C' => 70, 'D' => 40, 'E' => 10, 'F' => 55] as $col => $width) {
+        foreach (['A' => 10, 'B' => 40, 'C' => 52, 'D' => 72, 'E' => 36, 'F' => 10, 'G' => 45] as $col => $width) {
             $sheet->getColumnDimension($col)->setWidth($width);
         }
-        $sheet->getStyle("A2:F{$r}")->getAlignment()->setWrapText(true)->setVertical(Alignment::VERTICAL_TOP);
-        $sheet->freezePane('A2');
+        $sheet->getStyle("A3:G{$r}")->getAlignment()->setWrapText(true)->setVertical(Alignment::VERTICAL_TOP);
+        $sheet->freezePane('A3');
     }
 
     private function bucketValue(array $ind, string $dim, string $label): int|float|null

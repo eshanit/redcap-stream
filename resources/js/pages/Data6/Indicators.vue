@@ -26,7 +26,7 @@ interface FacilityRow { facility: string; clients: number; }
 
 const props = defineProps<{
     appTitle: string;
-    registry: { groups: GroupMeta[]; indicators: IndicatorMeta[] };
+    registry: { groups: GroupMeta[]; indicators: (IndicatorMeta & { variables?: string | null })[]; methods?: Record<string, string> };
     filterOptions: { districts: string[]; facilities: string[] };
 }>();
 
@@ -322,6 +322,13 @@ function exportCsv(): void {
                                 <p v-if="meta.no_period" class="flex items-start gap-1.5 text-[11px] leading-4 text-[#7d8b85]">
                                     <AlertTriangle class="mt-0.5 size-3 shrink-0 text-[#a87524]" />No date field on this instrument — value is all-time, the period filter does not apply.
                                 </p>
+                                <details v-if="registry.methods?.[meta.key]" class="pt-0.5">
+                                    <summary class="cursor-pointer text-[11px] font-bold text-[#3c605b] underline decoration-[#cbd3cd] decoration-dotted underline-offset-2 hover:decoration-[#e2644b]">
+                                        How we calculated this
+                                    </summary>
+                                    <p class="mt-1 border-l-2 border-[#e2644b] pl-2 text-[11px] leading-4.5 text-[#52655f]">{{ registry.methods[meta.key] }}</p>
+                                    <p v-if="meta.variables" class="mt-1 pl-2 font-mono text-[10px] text-[#7b8984]">{{ meta.variables }}</p>
+                                </details>
                             </div>
                         </article>
                     </section>
