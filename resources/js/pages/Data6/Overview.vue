@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Head, Link } from '@inertiajs/vue3';
-import { Activity, ArrowRight, BarChart3, CircleAlert, Download, FileSpreadsheet, GitMerge, MapPin, Users } from 'lucide-vue-next';
+import { Activity, ArrowRight, BarChart3, CircleAlert, Download, FileSpreadsheet, GitMerge, Lightbulb, MapPin, Users } from 'lucide-vue-next';
 import { computed } from 'vue';
 import VueApexCharts from 'vue3-apexcharts';
 import { type BreadcrumbItem } from '@/types';
@@ -115,6 +115,10 @@ const trendOptions = computed(() => ({
                         </Link>
                         <Link href="/data6/reports" class="group inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-5 py-2.5 text-xs font-bold text-[#3c605b] transition hover:bg-white">
                             <FileSpreadsheet class="size-4" />M&amp;E reports
+                            <ArrowRight class="size-3.5 transition group-hover:translate-x-0.5" />
+                        </Link>
+                        <Link href="/data6/insights" class="group inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-5 py-2.5 text-xs font-bold text-[#3c605b] transition hover:bg-white">
+                            <Lightbulb class="size-4" />Insights
                             <ArrowRight class="size-3.5 transition group-hover:translate-x-0.5" />
                         </Link>
                         <Link href="/data6/flow" class="group inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-5 py-2.5 text-xs font-bold text-[#3c605b] transition hover:bg-white">
@@ -253,7 +257,7 @@ const trendOptions = computed(() => ({
                 </section>
 
                 <!-- Onward navigation -->
-                <section class="mt-6 grid gap-3 sm:grid-cols-2">
+                <section class="mt-6 grid gap-3 sm:grid-cols-3">
                     <Link href="/data6/indicators" class="group flex items-center justify-between border border-[#d9ded7] bg-[#173b3b] p-5 text-white transition hover:bg-[#285655]">
                         <div>
                             <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-[#e9a18e]">For the M&E officer</p>
@@ -261,6 +265,14 @@ const trendOptions = computed(() => ({
                             <p class="mt-1 text-xs text-[#abc1b9]">Filterable by period, district, facility, gender and age band — with CSV export.</p>
                         </div>
                         <ArrowRight class="size-5 shrink-0 text-[#e9a18e] transition group-hover:translate-x-1" />
+                    </Link>
+                    <Link href="/data6/insights" class="group flex items-center justify-between border border-[#d9ded7] bg-[#fcfcfb] p-5 transition hover:bg-white">
+                        <div>
+                            <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-[#e2644b]">For the programme manager</p>
+                            <h3 class="mt-1 font-serif text-xl text-[#173b3b]">Cross-service insights</h3>
+                            <p class="mt-1 text-xs text-[#788681]">Linkage, co-utilisation and journeys — e.g. how many HIV-positive clients reached ART.</p>
+                        </div>
+                        <ArrowRight class="size-5 shrink-0 text-[#a6b1aa] transition group-hover:translate-x-1" />
                     </Link>
                     <Link href="/data6/flow" class="group flex items-center justify-between border border-[#d9ded7] bg-[#fcfcfb] p-5 transition hover:bg-white">
                         <div>

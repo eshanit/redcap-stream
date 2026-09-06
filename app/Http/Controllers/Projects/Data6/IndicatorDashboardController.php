@@ -4,12 +4,44 @@ namespace App\Http\Controllers\Projects\Data6;
 
 use App\Http\Controllers\Controller;
 use App\Services\Data6\IndicatorService;
+use App\Services\Data6\ReportService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Inertia\Inertia;
 
 class IndicatorDashboardController extends Controller
 {
+    public function show(string $code)
+    {
+        $meta = collect(config('data6_indicators.indicators'))->firstWhere('code', $code);
+        abort_if($meta === null, 404);
+
+        return Inertia::render('Data6/IndicatorDeepDive', [
+            'appTitle' => config('redcap.data6_unit.title'),
+            'meta' => $meta,
+            'method' => config('data6_indicators.methods')[$meta['key']] ?? null,
+            'methodCommon' => config('data6_indicators.method_common'),
+        ]);
+    }
+
+    public function deepDive(string $code, Request $request, ReportService $reports)
+    {
+        $validated = $request->validate([
+            'from' => ['required', 'date_format:Y-m-d'],
+            'to' => ['required', 'date_format:Y-m-d', 'after_or_equal:from'],
+        ]);
+
+        $result = Cache::remember(
+            "data6:deepdive:{$code}:{$validated['from']}:{$validated['to']}",
+            now()->addMinutes(15),
+            fn () => $reports->deepDive($code, $validated['from'], $validated['to']),
+        );
+
+        abort_if($result === null, 404);
+
+        return response()->json(['period' => $validated, 'indicator' => $result]);
+    }
+
     public function index(IndicatorService $indicators)
     {
         return Inertia::render('Data6/Indicators', [

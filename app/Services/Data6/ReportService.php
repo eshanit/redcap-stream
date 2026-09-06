@@ -49,7 +49,24 @@ class ReportService
         return $out;
     }
 
-    private function indicatorReport(array $meta): array
+    /** Full breakdown of ONE indicator (by code), including a monthly trend. */
+    public function deepDive(string $code, string $from, string $to): ?array
+    {
+        if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $from) || ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $to)) {
+            throw new InvalidArgumentException('Invalid report period.');
+        }
+        $this->from = $from;
+        $this->to = $to;
+
+        $meta = collect(config('data6_indicators.indicators'))->firstWhere('code', $code);
+        if ($meta === null) {
+            return null;
+        }
+
+        return $this->indicatorReport($meta, withTrend: true);
+    }
+
+    private function indicatorReport(array $meta, bool $withTrend = false): array
     {
         $base = [
             'code' => $meta['code'], 'key' => $meta['key'], 'label' => $meta['label'],
@@ -81,15 +98,17 @@ class ReportService
             $num = $this->detailRows($spec['num'], ['flag' => false, 'val' => false] + $opt);
             $den = $this->detailRows($spec['den'], ['flag' => false, 'val' => false] + $opt);
 
-            return $base + [
-                'total' => $this->pairBucket($num, $den),
-                'by' => [
-                    'age_band' => $this->pairBuckets($num, $den, 'age_band'),
-                    'sex' => $this->pairBuckets($num, $den, 'sex'),
-                    'facility' => $this->pairBuckets($num, $den, 'facility'),
-                    'district' => $this->pairBuckets($num, $den, 'district'),
-                ],
+            $by = [
+                'age_band' => $this->pairBuckets($num, $den, 'age_band'),
+                'sex' => $this->pairBuckets($num, $den, 'sex'),
+                'facility' => $this->pairBuckets($num, $den, 'facility'),
+                'district' => $this->pairBuckets($num, $den, 'district'),
             ];
+            if ($withTrend && ! $opt['no_period'] && ! $opt['skip_period']) {
+                $by['month'] = $this->pairBuckets($num, $den, 'month');
+            }
+
+            return $base + ['total' => $this->pairBucket($num, $den), 'by' => $by];
         }
 
         $rows = $this->detailRows($spec['sql'], $opt);
@@ -103,6 +122,9 @@ class ReportService
         ];
         if ($spec['service_point'] ?? false) {
             $by['service_point'] = $this->buckets($rows, 'instrument', $agg);
+        }
+        if ($withTrend && ! $opt['no_period'] && ! ($opt['skip_period'] ?? false)) {
+            $by['month'] = $this->buckets($rows, 'month', $agg);
         }
 
         return $base + ['total' => $agg($rows), 'by' => $by];
@@ -131,6 +153,7 @@ class ReportService
         $rows = DB::select("
             WITH demog AS ({$demog}), base AS ({$rowset})
             SELECT b.record,
+                   b.ref_date,
                    COALESCE(NULLIF(d.facility, ''), 'Unknown') AS facility,
                    COALESCE(NULLIF(d.district, ''), 'Unknown') AS district,
                    CASE d.gender WHEN '1' THEN 'Male' WHEN '2' THEN 'Female' ELSE 'Unknown' END AS sex,
@@ -145,7 +168,12 @@ class ReportService
             WHERE {$period} AND {$age}
         ", $bind);
 
-        return array_map(fn ($r) => (array) $r, $rows);
+        return array_map(function ($r) {
+            $row = (array) $r;
+            $row['month'] = is_string($row['ref_date'] ?? null) ? substr($row['ref_date'], 0, 7) : 'all-time';
+
+            return $row;
+        }, $rows);
     }
 
     private function aggregate(array $rows, string $mode): array

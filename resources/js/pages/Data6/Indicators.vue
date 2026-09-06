@@ -2,7 +2,7 @@
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Head } from '@inertiajs/vue3';
 import { Link } from '@inertiajs/vue3';
-import { AlertTriangle, CircleAlert, Download, FileSpreadsheet, Info, RefreshCw } from 'lucide-vue-next';
+import { AlertTriangle, ArrowRight, CircleAlert, Download, FileSpreadsheet, Info, Lightbulb, RefreshCw } from 'lucide-vue-next';
 import { computed, onMounted, ref } from 'vue';
 import VueApexCharts from 'vue3-apexcharts';
 import { type BreadcrumbItem } from '@/types';
@@ -204,6 +204,9 @@ function exportCsv(): void {
                         </p>
                     </div>
                     <div class="flex items-center gap-2">
+                        <Link href="/data6/insights" class="inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-4 py-2 text-xs font-bold text-[#3c605b] transition hover:bg-white">
+                            <Lightbulb class="size-3.5" />Insights
+                        </Link>
                         <Link href="/data6/reports" class="inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-4 py-2 text-xs font-bold text-[#3c605b] transition hover:bg-white">
                             <FileSpreadsheet class="size-3.5" />M&amp;E reports
                         </Link>
@@ -329,6 +332,11 @@ function exportCsv(): void {
                                     <p class="mt-1 border-l-2 border-[#e2644b] pl-2 text-[11px] leading-4.5 text-[#52655f]">{{ registry.methods[meta.key] }}</p>
                                     <p v-if="meta.variables" class="mt-1 pl-2 font-mono text-[10px] text-[#7b8984]">{{ meta.variables }}</p>
                                 </details>
+                                <Link v-if="meta.code && meta.status !== 'blocked'" :href="`/data6/indicators/${meta.code}`"
+                                    class="group mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-[#173b3b] px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-[#285655]">
+                                    Deeper analysis
+                                    <ArrowRight class="size-3 transition group-hover:translate-x-0.5" />
+                                </Link>
                             </div>
                         </article>
                     </section>

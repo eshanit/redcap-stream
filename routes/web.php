@@ -8,6 +8,7 @@ use App\Http\Controllers\CustomizedPackages\RequestController as RequestControll
 use App\Http\Controllers\CustomizedPackages\NCDPPlus\CoreIndicators as CoreIndicatorsControllers;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Projects\Data6\IndicatorDashboardController as Data6IndicatorDashboardController;
+use App\Http\Controllers\Projects\Data6\InsightsController as Data6InsightsController;
 use App\Http\Controllers\Projects\Data6\OverviewDashboardController as Data6OverviewDashboardController;
 use App\Http\Controllers\Projects\Data6\ProjectDashboardController as Data6ProjectDashboardController;
 use App\Http\Controllers\Projects\Data6\ReportController as Data6ReportController;
@@ -34,7 +35,10 @@ Route::middleware('auth')->group(function () {
 
     Route::get('data6', Data6OverviewDashboardController::class)->name('data6.dashboard');
     Route::get('data6/indicators', [Data6IndicatorDashboardController::class, 'index'])->name('data6.indicators');
+    Route::get('data6/indicators/{code}', [Data6IndicatorDashboardController::class, 'show'])
+        ->where('code', '[A-Za-z0-9]+')->name('data6.indicators.show');
     Route::get('data6/reports', [Data6ReportController::class, 'index'])->name('data6.reports');
+    Route::get('data6/insights', [Data6InsightsController::class, 'index'])->name('data6.insights');
     Route::get('data6/flow', Data6ProjectDashboardController::class)->name('data6.flow');
     Route::get('data6/project/{project_id}', Data6ProjectDashboardController::class)->name('data6.project.dashboard');
 
@@ -171,8 +175,12 @@ Route::middleware('auth')->group(function () {
             ->name('api.data6.indicators');
         Route::get('data6/records-export', [Data6OverviewDashboardController::class, 'exportRecords'])
             ->name('api.data6.records.export');
+        Route::get('data6/indicators/{code}/deep', [Data6IndicatorDashboardController::class, 'deepDive'])
+            ->where('code', '[A-Za-z0-9]+')->name('api.data6.indicators.deep');
         Route::get('data6/reports', [Data6ReportController::class, 'data'])
             ->name('api.data6.reports.data');
+        Route::get('data6/insights', [Data6InsightsController::class, 'data'])
+            ->name('api.data6.insights.data');
         Route::get('data6/reports/excel', [Data6ReportController::class, 'excel'])
             ->name('api.data6.reports.excel');
         Route::get('data6/patient/{patient}/timeline', [Data6ProjectDashboardController::class, 'timeline'])
