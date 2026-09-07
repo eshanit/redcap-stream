@@ -19,7 +19,7 @@ interface Insights {
     engagement: { clients: number; returning: number; returning_pct: number; median_visits: number; total_visits: number; distribution: LabelCount[] };
     facility_integration: { facility: string; clients: number; avg_services: number; multi_service_pct: number }[];
     sti_pathways: Pathway; hts_pathways: Pathway; opd_pathways: Pathway;
-    hiv_cascade: { steps: Step[]; linkage_pct: number | null; median_days_to_art: number | null; time_to_art: LabelCount[]; linkage_by: Record<string, { label: string; positives: number; linked: number; pct: number }[]>; note: string };
+    hiv_cascade: { steps: Step[]; linkage_pct: number | null; median_days_to_art: number | null; time_to_art: LabelCount[]; time_to_art_distribution: { min: number; q1: number; median: number; q3: number; max: number; n: number } | null; linkage_by: Record<string, { label: string; positives: number; linked: number; pct: number }[]>; note: string };
     prep_cascade: { steps: Step[]; continuing: number; discontinued: number; sti_screened_pct: number | null; note: string };
     anc_continuum: { bookings: number; bookings_hiv_known_pct: number | null; deliveries: number; institutional_pct: number | null; hiv_pos_mothers: number; hiv_pos_on_art_pct: number | null; anc_clients: number; anc_to_pnc_pct: number | null; anc_with_hts_pct: number | null; pnc_clients: number; pnc_to_fp_pct: number | null };
     mh_pathway: { screened: number; positive: number; positive_pct: number | null; positive_managed_pct: number | null; outcomes: LabelCount[]; substance: number; note: string };
@@ -94,6 +94,58 @@ function hbar(categories: string[], suffix = '') {
 }
 const series = (name: string, items: { count?: number; pct?: number }[], key: 'count' | 'pct' = 'count') => [{ name, data: items.map((i) => (i[key] ?? 0)) }];
 
+// HIV cascade: each stage is a subset of the one before it, so it's a
+// genuine funnel — value low->high already maps to lighter->darker, so the
+// sequential blue ramp keyed by stage order (not a separate categorical
+// palette) IS the ordinal color rule for funnels/tiers (dataviz skill).
+const cascadeColors = ['#104281', '#1c5cab', '#2a78d6', '#5598e7', '#86b6ef'];
+const cascadeOptions = computed(() => {
+    const steps = data.value?.hiv_cascade.steps ?? [];
+
+    return {
+        chart: { type: 'bar', toolbar: { show: false }, fontFamily: 'system-ui, sans-serif', animations: { enabled: false } },
+        colors: cascadeColors.slice(0, steps.length),
+        plotOptions: { bar: { horizontal: true, barHeight: '60%', borderRadius: 4, borderRadiusApplication: 'end', distributed: true } },
+        dataLabels: {
+            enabled: true, offsetX: 26, style: { colors: [inkSecondary], fontSize: '11px' },
+            formatter: (v: number, o: { dataPointIndex: number }) => {
+                const s = steps[o.dataPointIndex];
+
+                return s?.pct_of_previous !== null && s?.pct_of_previous !== undefined ? `${v.toLocaleString()} (${s.pct_of_previous}%)` : v.toLocaleString();
+            },
+        },
+        grid: { borderColor: gridHairline, yaxis: { lines: { show: false } } },
+        xaxis: { categories: steps.map((s) => s.label), labels: { style: { colors: inkMuted, fontSize: '11px' } }, axisBorder: { color: '#c3c2b7' }, axisTicks: { show: false } },
+        yaxis: { labels: { style: { colors: inkSecondary, fontSize: '12px' }, maxWidth: 200 } },
+        legend: { show: false },
+        tooltip: { y: { formatter: (v: number, o: { dataPointIndex: number }) => {
+            const s = steps[o.dataPointIndex];
+
+            return s?.pct_of_previous !== null && s?.pct_of_previous !== undefined ? `${v.toLocaleString()} (${s.pct_of_previous}% of previous)` : v.toLocaleString();
+        } } },
+    };
+});
+const cascadeSeries = computed(() => [{ name: 'Adolescents', data: (data.value?.hiv_cascade.steps ?? []).map((s) => s.count) }]);
+
+// Days-to-ART spread: a fixed 5-bucket bar hides whether "8-30 days" is a
+// tight cluster near 8 or spread across the whole range. A boxPlot of the
+// real min/Q1/median/Q3/max is the honest form for that distribution job.
+const timeToArtBoxOptions = computed(() => ({
+    chart: { type: 'boxPlot', toolbar: { show: false }, fontFamily: 'system-ui, sans-serif', animations: { enabled: false } },
+    colors: [seriesBlue],
+    plotOptions: { boxPlot: { colors: { upper: '#2a78d6', lower: '#86b6ef' } } },
+    grid: { borderColor: gridHairline },
+    xaxis: { categories: ['Days to linkage'], labels: { style: { colors: inkMuted, fontSize: '11px' } }, axisBorder: { color: '#c3c2b7' }, axisTicks: { show: false } },
+    yaxis: { labels: { style: { colors: inkMuted, fontSize: '11px' } }, title: { text: 'Days', style: { color: inkMuted, fontSize: '10px' } } },
+    tooltip: { shared: false },
+}));
+const timeToArtBoxSeries = computed(() => {
+    const d = data.value?.hiv_cascade.time_to_art_distribution;
+    if (!d) return [];
+
+    return [{ type: 'boxPlot', data: [{ x: 'Days to linkage', y: [d.min, d.q1, d.median, d.q3, d.max] }] }];
+});
+
 /** sequential blue for the co-utilisation heatmap cells */
 function heatColor(pct: number): string {
     if (pct >= 80) return '#1c5cab';
@@ -104,6 +156,44 @@ function heatColor(pct: number): string {
     return 'transparent';
 }
 function heatInk(pct: number): string { return pct >= 60 ? '#ffffff' : '#0b0b0b'; }
+
+// Co-utilisation as a real heatmap (was a hand-rolled HTML table with inline
+// background colors) — matrix[row][col] is exactly the shape ApexCharts'
+// heatmap expects: one series per row, one {x,y} cell per column.
+const heatmapSeries = computed(() => {
+    const d = data.value;
+    if (!d) return [];
+
+    return d.co_utilisation.rows.map((row) => ({
+        name: row.service,
+        data: row.cells.map((c) => ({ x: c.service, y: c.service === row.service ? null : c.pct })),
+    }));
+});
+const heatmapOptions = computed(() => ({
+    chart: { type: 'heatmap', toolbar: { show: false }, fontFamily: 'system-ui, sans-serif', animations: { enabled: false } },
+    plotOptions: {
+        heatmap: {
+            shadeIntensity: 1,
+            colorScale: {
+                ranges: [
+                    { from: -1, to: 0, name: '0%', color: '#f0efec' },
+                    { from: 0.01, to: 20, name: '1-20%', color: '#cde2fb' },
+                    { from: 20.01, to: 40, name: '21-40%', color: '#9ec5f4' },
+                    { from: 40.01, to: 60, name: '41-60%', color: '#5598e7' },
+                    { from: 60.01, to: 80, name: '61-80%', color: '#2a78d6' },
+                    { from: 80.01, to: 100, name: '81-100%', color: '#1c5cab' },
+                ],
+            },
+        },
+    },
+    dataLabels: { enabled: true, style: { fontSize: '10px', colors: [inkSecondary] }, formatter: (v: number | null) => (v === null ? '·' : `${v}%`) },
+    grid: { borderColor: gridHairline },
+    xaxis: { labels: { style: { colors: inkMuted, fontSize: '10px' }, rotate: -45 }, axisBorder: { show: false }, axisTicks: { show: false } },
+    yaxis: { labels: { style: { colors: inkSecondary, fontSize: '11px' } } },
+    legend: { show: true, position: 'bottom', fontSize: '11px', labels: { colors: inkSecondary } },
+    tooltip: { y: { formatter: (v: number | null) => (v === null ? '—' : `${v}%`) } },
+}));
+const showHeatmapTable = ref(false);
 
 const pctText = (v: number | null | undefined) => (v === null || v === undefined ? '—' : `${v}%`);
 
@@ -175,18 +265,7 @@ const headlineFindings = computed(() => {
                         <p class="mt-1 text-xs text-[#788681]">Answers: of adolescents who tested positive, how many got into the ART programme — and how fast?</p>
                         <div class="mt-4 grid gap-5 lg:grid-cols-[1.3fr_1fr]">
                             <div>
-                                <div v-for="(step, i) in data.hiv_cascade.steps" :key="step.label" class="mb-2">
-                                    <div class="flex items-baseline justify-between text-xs">
-                                        <span class="font-semibold text-[#244847]">{{ step.label }}</span>
-                                        <span class="text-[#788681]" style="font-variant-numeric: tabular-nums">
-                                            <strong class="text-sm text-[#0b2c2c]">{{ step.count.toLocaleString() }}</strong>
-                                            <span v-if="step.pct_of_previous !== null" class="ml-1.5">{{ step.pct_of_previous }}% of previous</span>
-                                        </span>
-                                    </div>
-                                    <div class="mt-1 h-3 w-full bg-[#eef0eb]">
-                                        <div class="h-3 bg-[#2a78d6]" :style="{ width: `${data.hiv_cascade.steps[0].count ? Math.max(1, (step.count / data.hiv_cascade.steps[0].count) * 100) : 0}%`, opacity: 1 - i * 0.12 }" />
-                                    </div>
-                                </div>
+                                <VueApexCharts type="bar" :height="Math.max(180, data.hiv_cascade.steps.length * 42 + 40)" :options="cascadeOptions" :series="cascadeSeries" />
                                 <p class="mt-3 flex items-start gap-1.5 text-[11px] leading-4 text-[#7d8b85]"><Info class="mt-0.5 size-3 shrink-0" />{{ data.hiv_cascade.note }}</p>
                             </div>
                             <div class="space-y-4">
@@ -197,6 +276,10 @@ const headlineFindings = computed(() => {
                                 <div>
                                     <h3 class="text-xs font-bold text-[#244847]">Time from positive test to ART/HIV care</h3>
                                     <VueApexCharts type="bar" height="190" :options="hbar(data.hiv_cascade.time_to_art.map((t) => t.label))" :series="series('Adolescents', data.hiv_cascade.time_to_art)" />
+                                    <template v-if="data.hiv_cascade.time_to_art_distribution && data.hiv_cascade.time_to_art_distribution.n >= 5">
+                                        <h3 class="mt-3 text-xs font-bold text-[#244847]">Real spread (n={{ data.hiv_cascade.time_to_art_distribution.n }})</h3>
+                                        <VueApexCharts type="boxPlot" height="120" :options="timeToArtBoxOptions" :series="timeToArtBoxSeries" />
+                                    </template>
                                 </div>
                             </div>
                         </div>
@@ -231,9 +314,19 @@ const headlineFindings = computed(() => {
 
                     <!-- Co-utilisation heatmap -->
                     <section class="mt-6 border border-[#d9ded7] bg-[#fcfcfb] p-5">
-                        <h2 class="font-serif text-xl text-[#173b3b]">Service co-utilisation</h2>
-                        <p class="mt-1 text-xs text-[#788681]">Read across a row: of adolescents who used the row service, the % who also used each column service. Mental health, health education and counselling are all-time access flags (no date on those forms).</p>
-                        <div class="mt-4 overflow-x-auto">
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <h2 class="font-serif text-xl text-[#173b3b]">Service co-utilisation</h2>
+                                <p class="mt-1 text-xs text-[#788681]">Read across a row: of adolescents who used the row service, the % who also used each column service. Mental health, health education and counselling are all-time access flags (no date on those forms).</p>
+                            </div>
+                            <button class="shrink-0 rounded-full border border-[#bdc9c3] px-3 py-1.5 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="showHeatmapTable = !showHeatmapTable">
+                                {{ showHeatmapTable ? 'Show heatmap' : 'Show as table' }}
+                            </button>
+                        </div>
+                        <div v-if="!showHeatmapTable" class="mt-4 overflow-x-auto">
+                            <VueApexCharts type="heatmap" :height="Math.max(240, data.co_utilisation.rows.length * 36 + 80)" :options="heatmapOptions" :series="heatmapSeries" />
+                        </div>
+                        <div v-else class="mt-4 overflow-x-auto">
                             <table class="text-[11px]" style="font-variant-numeric: tabular-nums">
                                 <thead><tr><th class="sticky left-0 bg-[#fcfcfb] px-2 py-1 text-left font-bold text-[#244847]">Used…</th><th class="px-1 py-1 text-right text-[#82908a]">n</th><th v-for="s in data.co_utilisation.services" :key="s" class="max-w-[64px] px-1 py-1 text-center align-bottom text-[10px] font-semibold leading-3 text-[#52514e]">{{ s }}</th></tr></thead>
                                 <tbody>

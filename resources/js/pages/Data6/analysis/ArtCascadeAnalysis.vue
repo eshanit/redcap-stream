@@ -2,6 +2,7 @@
 import { ChevronDown, CircleAlert, Download, HelpCircle, Info } from 'lucide-vue-next';
 import { computed, ref, watch, type Ref } from 'vue';
 import VueApexCharts from 'vue3-apexcharts';
+import RateMeter from '@/components/data6/RateMeter.vue';
 import { describeCategorical, describeTrend } from '@/composables/useChartInsights';
 
 interface OutcomeBucket { label: string; value: number; pct: number; }
@@ -67,29 +68,39 @@ const outcomeColors: Record<string, string> = {
     Active: '#0ca30c', LTFU: '#fab219', 'Transferred out': '#31577a', Died: '#d03b3b',
     'Opted out': '#8f6115', 'Other / status unclear': '#a6b1aa', 'No follow-up recorded': '#c3c2b7',
 };
+// A cohort outcome breakdown is one total split into parts, so it reads as
+// ONE stacked horizontal bar with a colored segment per outcome, not seven
+// separate bars — the "part-to-whole" job, not "compare seven magnitudes".
+// Colors are the status palette (Active=good, LTFU=warning, Died=critical),
+// not generic categorical hues, since these are genuine status categories.
 const outcomeOptions = computed(() => {
     const items = data.value?.cohort_outcomes.by.filter((b) => b.value > 0) ?? [];
 
     return {
-        chart: { type: 'bar', toolbar: { show: false }, fontFamily: 'system-ui, sans-serif', animations: { enabled: false } },
+        chart: { type: 'bar', stacked: true, toolbar: { show: false }, fontFamily: 'system-ui, sans-serif', animations: { enabled: false } },
         colors: items.map((b) => outcomeColors[b.label] ?? seriesBlue),
-        plotOptions: { bar: { horizontal: true, barHeight: '60%', borderRadius: 4, borderRadiusApplication: 'end', distributed: true } },
-        dataLabels: { enabled: true, offsetX: 26, style: { colors: [inkSecondary], fontSize: '11px' }, formatter: (v: number, o: { dataPointIndex: number }) => `${v} (${items[o.dataPointIndex]?.pct}%)` },
-        grid: { borderColor: gridHairline, yaxis: { lines: { show: false } } },
-        xaxis: { categories: items.map((b) => b.label), labels: { style: { colors: inkMuted, fontSize: '11px' } }, axisBorder: { color: '#c3c2b7' }, axisTicks: { show: false } },
-        yaxis: { labels: { style: { colors: inkSecondary, fontSize: '12px' } } },
-        legend: { show: false },
-        tooltip: { y: { formatter: (v: number, o: { dataPointIndex: number }) => `${v} clients (${items[o.dataPointIndex]?.pct}%)` } },
+        plotOptions: { bar: { horizontal: true, barHeight: '55%' } },
+        dataLabels: {
+            enabled: true,
+            style: { colors: ['#fcfcfb'], fontSize: '11px', fontWeight: 700 },
+            formatter: (_v: number, o: { seriesIndex: number }) => (items[o.seriesIndex]?.pct >= 6 ? `${items[o.seriesIndex]?.pct}%` : ''),
+        },
+        grid: { show: false },
+        xaxis: { categories: ['Cohort'], labels: { show: false }, axisBorder: { show: false }, axisTicks: { show: false } },
+        yaxis: { labels: { show: false } },
+        legend: { show: true, position: 'bottom', fontSize: '12px', labels: { colors: '#52514e' }, markers: { size: 6 } },
+        tooltip: { y: { formatter: (v: number, o: { seriesIndex: number }) => `${items[o.seriesIndex]?.value} clients (${items[o.seriesIndex]?.pct}%)` } },
     };
 });
-const outcomeSeries = computed(() => [{ name: 'Clients', data: (data.value?.cohort_outcomes.by.filter((b) => b.value > 0) ?? []).map((b) => b.value) }]);
+const outcomeSeries = computed(() => (data.value?.cohort_outcomes.by.filter((b) => b.value > 0) ?? []).map((b) => ({ name: b.label, data: [b.value] })));
 
 const retentionChartRef = ref<ApexChartHandle | null>(null);
 const retentionOptions = computed(() => ({
-    chart: { type: 'bar', toolbar: { show: false }, fontFamily: 'system-ui, sans-serif', animations: { enabled: false } },
+    chart: { type: 'line', toolbar: { show: false }, fontFamily: 'system-ui, sans-serif', animations: { enabled: false } },
     colors: [seriesBlue],
-    plotOptions: { bar: { columnWidth: '55%', borderRadius: 4, borderRadiusApplication: 'end' } },
-    dataLabels: { enabled: true, offsetY: -18, style: { colors: [inkSecondary], fontSize: '11px' }, formatter: (v: number) => (v === null ? '—' : `${v}%`) },
+    stroke: { width: 2.5, curve: 'straight' },
+    markers: { size: 4, strokeWidth: 2, strokeColors: '#fcfcfb', hover: { size: 6 } },
+    dataLabels: { enabled: true, offsetY: -14, style: { colors: [inkSecondary], fontSize: '11px' }, formatter: (v: number) => (v === null ? '—' : `${v}%`) },
     grid: { borderColor: gridHairline, xaxis: { lines: { show: false } } },
     xaxis: { categories: (data.value?.retention_trend ?? []).map((r) => r.label), labels: { style: { colors: inkMuted, fontSize: '11px' } }, axisBorder: { color: '#c3c2b7' }, axisTicks: { show: false } },
     yaxis: { labels: { style: { colors: inkMuted, fontSize: '11px' } }, min: 0, max: 100 },
@@ -196,7 +207,7 @@ function downloadRetentionCsv(): void {
                                 <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadOutcomesCsv"><Download class="size-3" />CSV</button>
                             </div>
                         </div>
-                        <VueApexCharts ref="outcomeChartRef" type="bar" :height="Math.max(160, data.cohort_outcomes.by.filter((b) => b.value > 0).length * 40 + 60)" :options="outcomeOptions" :series="outcomeSeries" />
+                        <VueApexCharts ref="outcomeChartRef" type="bar" height="150" :options="outcomeOptions" :series="outcomeSeries" />
                         <div v-if="outcomeInsight" class="mt-3 border-t border-[#eef0eb] pt-3">
                             <p v-for="(para, i) in insightParagraphs(outcomeInsight)" :key="i" class="text-[12.5px] leading-5 text-[#52655f]" :class="i > 0 ? 'mt-2' : ''">{{ para }}</p>
                         </div>
@@ -215,7 +226,7 @@ function downloadRetentionCsv(): void {
                                 <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadRetentionCsv"><Download class="size-3" />CSV</button>
                             </div>
                         </div>
-                        <VueApexCharts v-if="data.retention_trend.length" ref="retentionChartRef" type="bar" height="240" :options="retentionOptions" :series="retentionSeries" />
+                        <VueApexCharts v-if="data.retention_trend.length" ref="retentionChartRef" type="line" height="240" :options="retentionOptions" :series="retentionSeries" />
                         <p v-else class="flex items-start gap-2 py-6 text-xs leading-5 text-[#788681]">
                             <Info class="mt-0.5 size-3.5 shrink-0" />
                             No initiation cohort has reached its 12-month mark yet as of {{ to }} — HTS-recorded ART initiations in this dataset only begin in January 2026, so the earliest eligible cohort matures in January 2027.
@@ -226,15 +237,15 @@ function downloadRetentionCsv(): void {
                     </div>
 
                     <!-- 3. VL coverage among the active cohort -->
-                    <div class="mt-4 flex flex-wrap items-end gap-6 border border-[#d9ded7] bg-white px-5 py-4">
-                        <div>
-                            <p class="text-xs font-bold uppercase tracking-wider text-[#76827e]">VL testing coverage, active cohort</p>
-                            <p class="mt-1 font-serif text-3xl text-[#0b2c2c]">{{ data.vl_coverage.pct === null ? '—' : `${data.vl_coverage.pct}%` }}</p>
+                    <div class="mt-4 border border-[#d9ded7] bg-white px-5 py-4">
+                        <h3 class="text-sm font-bold text-[#244847]">VL testing coverage, active cohort</h3>
+                        <p class="mt-0.5 text-[11px] text-[#788681]">A ratio against the eligible population, not a raw count — the right form is a meter, not a bar.</p>
+                        <div class="mt-3">
+                            <RateMeter
+                                label="VL coverage" :value="data.vl_coverage.pct" color="#2a78d6"
+                                :caption="`${data.vl_coverage.tested_12mo} of ${data.vl_coverage.active_total} currently-active clients tested for VL in the trailing 12 months`"
+                                :filename="`${code}_art_cascade_vl_coverage_${from}_${to}`" />
                         </div>
-                        <p class="pb-1.5 text-sm text-[#60716d]" style="font-variant-numeric: tabular-nums">
-                            {{ data.vl_coverage.tested_12mo }} of {{ data.vl_coverage.active_total }} currently-active clients
-                            <span class="block text-xs text-[#82908a]">tested for VL in the trailing 12 months</span>
-                        </p>
                     </div>
 
                     <!-- How this analysis was done -->

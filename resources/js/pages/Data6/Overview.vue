@@ -2,11 +2,12 @@
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Head, Link } from '@inertiajs/vue3';
 import { Activity, ArrowRight, BarChart3, CircleAlert, Download, FileSpreadsheet, GitMerge, Lightbulb, MapPin, Users } from 'lucide-vue-next';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import VueApexCharts from 'vue3-apexcharts';
 import { type BreadcrumbItem } from '@/types';
 
 interface LabelCount { label: string; count: number; }
+interface DistrictFacilityCount { district: string; facility: string; count: number; }
 interface Summary {
     headline: {
         total: number; facilities: number; districts: number; female: number; male: number;
@@ -14,6 +15,7 @@ interface Summary {
     };
     by_facility: LabelCount[];
     by_district: LabelCount[];
+    by_district_facility: DistrictFacilityCount[];
     age_bands: LabelCount[];
     by_profile: LabelCount[];
     by_education: LabelCount[];
@@ -71,6 +73,58 @@ function colOptions(categories: string[]) {
 
 function exportUrl(dimension: 'facility' | 'district', value: string): string {
     return `/api/data6/records-export?dimension=${dimension}&value=${encodeURIComponent(value)}`;
+}
+
+// District > facility as a treemap: facility and district used to be two
+// separate flat bars with no way to see how facilities group within a
+// district. ApexCharts' multi-series treemap mode draws one categorical hue
+// per district, shaded within it by facility size — the right form for
+// hierarchical magnitude across many nominal categories.
+const categoricalPalette = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#4a3aa7', '#e34948'];
+const districts = computed(() => Array.from(new Set(props.summary.by_district_facility.map((r) => r.district))));
+const treemapSeries = computed(() => districts.value.map((d) => ({
+    name: d,
+    data: props.summary.by_district_facility.filter((r) => r.district === d).map((r) => ({ x: r.facility, y: r.count })),
+})));
+interface ApexChartHandle { dataURI(options?: { scale?: number }): Promise<{ imgURI?: string }>; }
+const treemapChartRef = ref<ApexChartHandle | null>(null);
+const treemapOptions = computed(() => ({
+    chart: { type: 'treemap', toolbar: { show: false }, fontFamily: 'system-ui, sans-serif', animations: { enabled: false } },
+    colors: categoricalPalette.slice(0, districts.value.length),
+    plotOptions: { treemap: { distributed: false, enableShades: true, shadeIntensity: 0.35 } },
+    legend: { show: true, position: 'top', horizontalAlign: 'left', fontSize: '12px', labels: { colors: inkSecondary }, markers: { size: 6 } },
+    dataLabels: { enabled: true, style: { fontSize: '11px', fontWeight: 600 } },
+    tooltip: { y: { formatter: (v: number) => `${v.toLocaleString()} clients` } },
+}));
+async function downloadTreemap(format: 'png' | 'jpg'): Promise<void> {
+    const result = await treemapChartRef.value?.dataURI({ scale: 2 });
+    const pngUri = result?.imgURI ?? null;
+    if (!pngUri) return;
+    const filename = `overview_district_facility.${format}`;
+    if (format === 'png') {
+        const link = document.createElement('a');
+        link.href = pngUri;
+        link.download = filename;
+        link.click();
+
+        return;
+    }
+    const img = new Image();
+    img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        ctx.fillStyle = '#fcfcfb';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+        const link = document.createElement('a');
+        link.href = canvas.toDataURL('image/jpeg', 0.95);
+        link.download = filename;
+        link.click();
+    };
+    img.src = pngUri;
 }
 
 const trendOptions = computed(() => ({
@@ -158,8 +212,23 @@ const trendOptions = computed(() => ({
                     <span v-for="q in qualityIssues" :key="q.label">{{ q.label }}: <strong>{{ q.count.toLocaleString() }}</strong></span>
                 </section>
 
+                <!-- District > facility hierarchy -->
+                <section class="mt-6 border border-[#d9ded7] bg-[#fcfcfb] p-5">
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <h2 class="text-sm font-bold text-[#244847]">Clients by district and facility</h2>
+                            <p class="mt-0.5 text-[11px] text-[#788681]">Each block is one district; its facilities are shaded by size within it.</p>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadTreemap('png')"><Download class="size-3" />PNG</button>
+                            <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadTreemap('jpg')"><Download class="size-3" />JPG</button>
+                        </div>
+                    </div>
+                    <VueApexCharts ref="treemapChartRef" type="treemap" height="320" :options="treemapOptions" :series="treemapSeries" />
+                </section>
+
                 <!-- Charts -->
-                <section class="mt-6 grid gap-4 xl:grid-cols-2">
+                <section class="mt-4 grid gap-4 xl:grid-cols-2">
                     <div class="border border-[#d9ded7] bg-[#fcfcfb] p-5">
                         <h2 class="text-sm font-bold text-[#244847]">Clients by facility</h2>
                         <VueApexCharts type="bar" :height="Math.max(220, summary.by_facility.length * 30 + 60)"

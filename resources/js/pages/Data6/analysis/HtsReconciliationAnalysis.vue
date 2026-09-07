@@ -2,6 +2,7 @@
 import { ChevronDown, CircleAlert, Download, HelpCircle } from 'lucide-vue-next';
 import { computed, ref, watch, type Ref } from 'vue';
 import VueApexCharts from 'vue3-apexcharts';
+import RateMeter from '@/components/data6/RateMeter.vue';
 import { describeCategorical } from '@/composables/useChartInsights';
 
 interface GapBucket { label: string; value: number; }
@@ -167,17 +168,16 @@ function downloadRecordsCsv(): void {
                 <div v-else-if="loading" class="py-10 text-center text-sm text-[#788681]">Comparing the HTS register against every other evidence source for {{ from }} → {{ to }}…</div>
 
                 <template v-else-if="current">
-                    <!-- Headline -->
-                    <div class="flex flex-wrap items-end gap-6 border border-[#d9ded7] bg-white px-5 py-4">
-                        <div>
-                            <p class="text-xs font-bold uppercase tracking-wider text-[#76827e]">Missing from HTS ({{ sectionLabel }})</p>
-                            <p class="mt-1 font-serif text-4xl text-[#0b2c2c]">{{ current.gap_pct === null ? '—' : `${current.gap_pct}%` }}</p>
+                    <!-- Headline: a ratio against a limit reads as a meter, not a bare number -->
+                    <div class="flex flex-wrap items-center justify-between gap-6 border border-[#d9ded7] bg-white px-5 py-4">
+                        <div class="flex flex-wrap items-center gap-4">
+                            <RateMeter
+                                label="Missing from HTS" :value="current.gap_pct" color="#fab219"
+                                :caption="`${current.gap.toLocaleString()} of ${current.evidenced_elsewhere.toLocaleString()} clients with evidence elsewhere`"
+                                :filename="`${code}_reconciliation_gap_rate_${from}_${to}`" />
+                            <p class="text-xs text-[#82908a]">{{ current.in_hts.toLocaleString() }} of them are also logged in {{ officialLabel }} this period.</p>
                         </div>
-                        <p class="pb-1.5 text-sm text-[#60716d]" style="font-variant-numeric: tabular-nums">
-                            {{ current.gap.toLocaleString() }} of {{ current.evidenced_elsewhere.toLocaleString() }} clients with evidence elsewhere
-                            <span class="block text-xs text-[#82908a]">{{ current.in_hts.toLocaleString() }} of them are also logged in {{ officialLabel }} this period</span>
-                        </p>
-                        <button v-if="current.records.length" class="ml-auto inline-flex items-center gap-1.5 rounded-full bg-[#173b3b] px-4 py-2 text-xs font-bold text-white transition hover:bg-[#285655]" @click="downloadRecordsCsv">
+                        <button v-if="current.records.length" class="inline-flex items-center gap-1.5 rounded-full bg-[#173b3b] px-4 py-2 text-xs font-bold text-white transition hover:bg-[#285655]" @click="downloadRecordsCsv">
                             <Download class="size-3.5" />Download reconciliation list (CSV)
                         </button>
                     </div>

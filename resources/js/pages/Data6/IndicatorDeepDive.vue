@@ -92,9 +92,8 @@ const inkMuted = '#898781';
 const inkSecondary = '#52514e';
 const gridHairline = '#e1e0d9';
 
-const goldLine = '#c58a32';
-
-// Hybrid view: bars = the monthly value; line = a running total. For a
+// Cumulative readout shown as text beside the chart (see trendChartType).
+// For a
 // count of unique clients ("distinct" indicators like AHP001) the backend
 // computes cumulative as a running UNION of records seen so far, so it
 // reconciles to the period total — summing each month's distinct count
@@ -125,25 +124,36 @@ interface ApexChartHandle {
     dataURI(options?: { scale?: number }): Promise<{ imgURI?: string }>;
 }
 const trendChartRef = ref<ApexChartHandle | null>(null);
-const barsVisible = ref(true);
-const lineVisible = ref(true);
+
+// Single axis, single series: a %-type indicator plots its rate as a line;
+// a count-type indicator plots its monthly value as an area. The cumulative
+// figure that used to ride a second y-axis is a stat readout instead — a
+// second scale on the same plot invents an alignment that isn't really
+// there (dataviz skill's #1 anti-pattern), so two measures of different
+// scale get two separate presentations, not one chart with two axes.
+const trendChartType = computed(() => (isPercent.value ? 'line' : 'area'));
+const cumulativeText = computed(() => {
+    const series = cumulativeSeries.value;
+    const last = [...series].reverse().find((v) => v !== null);
+    if (last === null || last === undefined) return '—';
+
+    return isPercent.value ? `${last}%` : Number(last).toLocaleString();
+});
 
 const trendOptions = computed(() => ({
     chart: {
         id: 'indicator-trend',
-        stacked: false,
         toolbar: { show: false },
         fontFamily: 'system-ui, sans-serif',
         animations: { enabled: false },
     },
-    colors: [seriesBlue, goldLine],
-    stroke: { width: [0, 2.5], curve: 'straight' },
-    markers: { size: [0, 4], strokeWidth: 2, strokeColors: '#fcfcfb', hover: { size: 6 } },
-    plotOptions: { bar: { columnWidth: '55%', borderRadius: 4, borderRadiusApplication: 'end' } },
+    colors: [seriesBlue],
+    stroke: { width: 2.5, curve: 'straight' },
+    fill: isPercent.value ? undefined : { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.35, opacityTo: 0.05, stops: [0, 100] } },
+    markers: { size: 4, strokeWidth: 2, strokeColors: '#fcfcfb', hover: { size: 6 } },
     dataLabels: {
         enabled: true,
-        enabledOnSeries: [0],
-        offsetY: -18,
+        offsetY: -12,
         style: { colors: [inkSecondary], fontSize: '11px' },
         formatter: (v: number) => (isPercent.value ? `${v}%` : v.toLocaleString()),
     },
@@ -154,46 +164,25 @@ const trendOptions = computed(() => ({
         axisBorder: { color: '#c3c2b7' },
         axisTicks: { show: false },
     },
-    yaxis: isPercent.value
-        ? [{ labels: { style: { colors: inkMuted, fontSize: '11px' } }, min: 0, max: 100, forceNiceScale: true }]
-        : [
-              { seriesName: props.meta.label, labels: { style: { colors: inkMuted, fontSize: '11px' } }, forceNiceScale: true, min: 0 },
-              { seriesName: cumulativeLabel.value, opposite: true, labels: { style: { colors: goldLine, fontSize: '11px' } }, forceNiceScale: true, min: 0 },
-          ],
-    legend: {
-        show: true, position: 'top', horizontalAlign: 'left', fontSize: '12px',
-        labels: { colors: '#52514e' }, markers: { size: 6 },
-        onItemClick: { toggleDataSeries: true },
+    yaxis: {
+        labels: { style: { colors: inkMuted, fontSize: '11px' } },
+        min: 0, max: isPercent.value ? 100 : undefined, forceNiceScale: true,
     },
+    legend: { show: false },
     tooltip: {
-        shared: true, intersect: false,
         y: {
-            formatter: (v: number | null, opts: { seriesIndex: number; dataPointIndex: number }) => {
+            formatter: (v: number | null, opts: { dataPointIndex: number }) => {
                 if (v === null) return '—';
-                if (opts.seriesIndex === 0) {
-                    const b = monthTrend.value[opts.dataPointIndex];
+                const b = monthTrend.value[opts.dataPointIndex];
 
-                    return isPercent.value && b?.numerator !== undefined ? `${v}% (${b.numerator}/${b.denominator})` : (isPercent.value ? `${v}%` : v.toLocaleString());
-                }
-
-                return isPercent.value ? `${v}%` : v.toLocaleString();
+                return isPercent.value && b?.numerator !== undefined ? `${v}% (${b.numerator}/${b.denominator})` : (isPercent.value ? `${v}%` : v.toLocaleString());
             },
         },
     },
 }));
 const trendSeries = computed(() => [
-    { name: props.meta.label, type: 'column', data: monthTrend.value.map((b) => b.value ?? 0) },
-    { name: cumulativeLabel.value, type: 'line', data: cumulativeSeries.value },
+    { name: props.meta.label, data: monthTrend.value.map((b) => b.value ?? 0) },
 ]);
-
-function toggleBars(): void {
-    trendChartRef.value?.toggleSeries(props.meta.label);
-    barsVisible.value = !barsVisible.value;
-}
-function toggleLine(): void {
-    trendChartRef.value?.toggleSeries(cumulativeLabel.value);
-    lineVisible.value = !lineVisible.value;
-}
 
 async function downloadChartImage(chartRef: typeof trendChartRef, suffix: string, format: 'png' | 'jpg'): Promise<void> {
     const result = await chartRef.value?.dataURI({ scale: 2 });
@@ -280,9 +269,10 @@ const showSexTrend = computed(() => hasSexDim.value && monthBySex.value.length >
 const sexChartRef = ref<ApexChartHandle | null>(null);
 
 const sexTrendOptions = computed(() => ({
-    chart: { type: 'bar', toolbar: { show: false }, fontFamily: 'system-ui, sans-serif', animations: { enabled: false } },
+    chart: { type: 'line', toolbar: { show: false }, fontFamily: 'system-ui, sans-serif', animations: { enabled: false } },
     colors: [seriesBlue, seriesOrange],
-    plotOptions: { bar: { columnWidth: '65%', borderRadius: 4, borderRadiusApplication: 'end' } },
+    stroke: { width: 2.5, curve: 'straight' },
+    markers: { size: 4, strokeWidth: 2, strokeColors: '#fcfcfb', hover: { size: 6 } },
     dataLabels: { enabled: false },
     grid: { borderColor: gridHairline, xaxis: { lines: { show: false } } },
     xaxis: {
@@ -467,12 +457,9 @@ const statusBadges: Record<string, { label: string; cls: string }> = {
                         <div class="flex flex-wrap items-center justify-between gap-3">
                             <h2 class="text-sm font-bold text-[#244847]">Monthly trend</h2>
                             <div class="flex flex-wrap items-center gap-2">
-                                <button class="rounded-full border px-3 py-1 text-[11px] font-bold transition"
-                                    :class="barsVisible ? 'border-[#2a78d6] bg-[#e7eef4] text-[#2a78d6]' : 'border-[#cbd3cd] text-[#a6b1aa]'"
-                                    @click="toggleBars">Monthly {{ isPercent ? 'rate' : 'value' }}</button>
-                                <button class="rounded-full border px-3 py-1 text-[11px] font-bold transition"
-                                    :class="lineVisible ? 'border-[#c58a32] bg-[#f7efdd] text-[#8f6115]' : 'border-[#cbd3cd] text-[#a6b1aa]'"
-                                    @click="toggleLine">{{ cumulativeLabel }}</button>
+                                <span class="rounded-full border border-[#cbd3cd] bg-white px-3 py-1 text-[11px] font-bold text-[#55706a]">
+                                    {{ cumulativeLabel }}: <span class="text-[#173b3b]">{{ cumulativeText }}</span>
+                                </span>
                                 <span class="mx-1 h-4 w-px bg-[#d9ded7]" />
                                 <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadChart('png')">
                                     <Download class="size-3" />PNG
@@ -485,8 +472,7 @@ const statusBadges: Record<string, { label: string; cls: string }> = {
                                 </button>
                             </div>
                         </div>
-                        <p class="mt-1 text-[11px] text-[#788681]">Click a chip above, or a legend entry on the chart, to hide or show that series.</p>
-                        <VueApexCharts ref="trendChartRef" type="line" height="280" :options="trendOptions" :series="trendSeries" />
+                        <VueApexCharts ref="trendChartRef" :type="trendChartType" height="280" :options="trendOptions" :series="trendSeries" />
                         <div v-if="trendInsight" class="mt-3 border-t border-[#eef0eb] pt-3">
                             <p class="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[#82908a]"><Lightbulb class="size-3 text-[#e2644b]" />Insights</p>
                             <p v-for="(para, i) in insightParagraphs(trendInsight)" :key="i" class="text-[12.5px] leading-5 text-[#52655f]" :class="i > 0 ? 'mt-2' : ''">{{ para }}</p>
@@ -509,7 +495,7 @@ const statusBadges: Record<string, { label: string; cls: string }> = {
                             </div>
                         </div>
                         <p class="mt-1 text-[11px] text-[#788681]">Male and female {{ isPercent ? 'rates' : 'counts' }} per month. Click a legend entry to hide or show a series.</p>
-                        <VueApexCharts ref="sexChartRef" type="bar" height="260" :options="sexTrendOptions" :series="sexTrendSeries" />
+                        <VueApexCharts ref="sexChartRef" type="line" height="260" :options="sexTrendOptions" :series="sexTrendSeries" />
                         <div v-if="sexTrendInsight" class="mt-3 border-t border-[#eef0eb] pt-3">
                             <p class="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[#82908a]"><Lightbulb class="size-3 text-[#e2644b]" />Insights</p>
                             <p class="text-[12.5px] leading-5 text-[#52655f]">{{ sexTrendInsight }}</p>

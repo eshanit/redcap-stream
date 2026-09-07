@@ -517,8 +517,37 @@ class InsightsService
             'linkage_pct' => $pct($linked, $positives),
             'median_days_to_art' => $days ? $days[intdiv(count($days), 2)] : null,
             'time_to_art' => array_map(fn ($k, $v) => ['label' => $k, 'count' => $v], array_keys($timeBuckets), $timeBuckets),
+            'time_to_art_distribution' => $this->fiveNumberSummary($days),
             'linkage_by' => $dimRows,
             'note' => 'Linkage = an OI/ART registration or visit on/after the positive test (30-day tolerance for entry-date discrepancies), or ART initiation recorded in the HTS register. Positive = first positive result in the period across HTS, STI, PrEP, ANC and OI/ART registers.',
+        ];
+    }
+
+    /**
+     * Min/Q1/median/Q3/max of an already-sorted numeric array, for a boxPlot
+     * chart — shows the real spread of days-to-linkage instead of collapsing
+     * it to a single median or a handful of fixed buckets.
+     */
+    private function fiveNumberSummary(array $sorted): ?array
+    {
+        $n = count($sorted);
+        if ($n === 0) return null;
+
+        $quantile = function (float $q) use ($sorted, $n) {
+            $pos = $q * ($n - 1);
+            $lo = (int) floor($pos);
+            $hi = (int) ceil($pos);
+
+            return $sorted[$lo] + ($sorted[$hi] - $sorted[$lo]) * ($pos - $lo);
+        };
+
+        return [
+            'min' => $sorted[0],
+            'q1' => round($quantile(0.25), 1),
+            'median' => round($quantile(0.5), 1),
+            'q3' => round($quantile(0.75), 1),
+            'max' => $sorted[$n - 1],
+            'n' => $n,
         ];
     }
 

@@ -61,6 +61,7 @@ class SummaryService
             'headline' => $this->headline($demog),
             'by_facility' => $this->groupedCount($demog, 'facility'),
             'by_district' => $this->groupedCount($demog, 'district'),
+            'by_district_facility' => $this->groupedCountByTwo($demog, 'district', 'facility'),
             'age_bands' => $this->ageBands($demog),
             'by_profile' => $this->decodedCount($demog, 'profile', self::PROFILE),
             'by_education' => $this->decodedCount($demog, 'education', self::EDUCATION),
@@ -136,6 +137,20 @@ class SummaryService
         ");
 
         return array_map(fn ($r) => ['label' => $r->label, 'count' => (int) $r->n], $rows);
+    }
+
+    /** District > facility client counts, for the Overview treemap. */
+    private function groupedCountByTwo(string $demog, string $outer, string $inner): array
+    {
+        $rows = DB::select("
+            WITH demog AS ({$demog})
+            SELECT COALESCE(NULLIF({$outer}, ''), 'Unknown') AS outer_label,
+                   COALESCE(NULLIF({$inner}, ''), 'Unknown') AS inner_label,
+                   COUNT(*) AS n
+            FROM demog GROUP BY outer_label, inner_label ORDER BY outer_label, n DESC
+        ");
+
+        return array_map(fn ($r) => ['district' => $r->outer_label, 'facility' => $r->inner_label, 'count' => (int) $r->n], $rows);
     }
 
     private function decodedCount(string $demog, string $column, array $map): array
