@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Projects\Data6;
 
 use App\Http\Controllers\Controller;
+use App\Services\Data6\CacheVersion;
 use App\Services\Data6\IndicatorService;
 use App\Services\Data6\ReportService;
 use Illuminate\Http\Request;
@@ -32,7 +33,7 @@ class IndicatorDashboardController extends Controller
         ]);
 
         $result = Cache::remember(
-            "data6:deepdive:{$code}:{$validated['from']}:{$validated['to']}",
+            CacheVersion::key("deepdive:{$code}:{$validated['from']}:{$validated['to']}"),
             now()->addMinutes(15),
             fn () => $reports->deepDive($code, $validated['from'], $validated['to']),
         );
@@ -62,7 +63,7 @@ class IndicatorDashboardController extends Controller
             'age_band' => ['nullable', 'in:10_19,10_14,15_19,all'],
         ]);
 
-        $cacheKey = 'data6:indicators:'.md5(json_encode($validated));
+        $cacheKey = CacheVersion::key('indicators:'.md5(json_encode($validated)));
 
         $payload = Cache::remember($cacheKey, now()->addMinutes(15), fn () => $indicators->compute($validated));
 

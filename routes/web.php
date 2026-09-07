@@ -7,6 +7,7 @@ use App\Http\Controllers\CustomizedPackages\NCD\Appointments\ReviewController;
 use App\Http\Controllers\CustomizedPackages\RequestController as RequestController;
 use App\Http\Controllers\CustomizedPackages\NCDPPlus\CoreIndicators as CoreIndicatorsControllers;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\Projects\Data6\AnalysisController as Data6AnalysisController;
 use App\Http\Controllers\Projects\Data6\IndicatorDashboardController as Data6IndicatorDashboardController;
 use App\Http\Controllers\Projects\Data6\InsightsController as Data6InsightsController;
 use App\Http\Controllers\Projects\Data6\OverviewDashboardController as Data6OverviewDashboardController;
@@ -177,6 +178,10 @@ Route::middleware('auth')->group(function () {
             ->name('api.data6.records.export');
         Route::get('data6/indicators/{code}/deep', [Data6IndicatorDashboardController::class, 'deepDive'])
             ->where('code', '[A-Za-z0-9]+')->name('api.data6.indicators.deep');
+        Route::get('data6/analysis/art-cascade', [Data6AnalysisController::class, 'artCascade'])
+            ->name('api.data6.analysis.art_cascade');
+        Route::get('data6/analysis/hts-reconciliation', [Data6AnalysisController::class, 'htsReconciliation'])
+            ->name('api.data6.analysis.hts_reconciliation');
         Route::get('data6/reports', [Data6ReportController::class, 'data'])
             ->name('api.data6.reports.data');
         Route::get('data6/insights', [Data6InsightsController::class, 'data'])

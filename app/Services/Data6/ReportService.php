@@ -104,8 +104,16 @@ class ReportService
                 'facility' => $this->pairBuckets($num, $den, 'facility'),
                 'district' => $this->pairBuckets($num, $den, 'district'),
             ];
-            if ($withTrend && ! $opt['no_period'] && ! $opt['skip_period']) {
-                $by['month'] = $this->pairBuckets($num, $den, 'month');
+            if ($spec['service_point'] ?? false) {
+                $by['service_point'] = $this->pairBuckets($num, $den, 'instrument');
+            }
+            if ($withTrend) {
+                if (! $opt['no_period'] && ! $opt['skip_period']) {
+                    $by['month'] = $this->pairBuckets($num, $den, 'month');
+                    $by['month_sex'] = $this->dimSexPairBuckets($num, $den, 'month');
+                }
+                $by['facility_sex'] = $this->dimSexPairBuckets($num, $den, 'facility');
+                $by['district_sex'] = $this->dimSexPairBuckets($num, $den, 'district');
             }
 
             return $base + ['total' => $this->pairBucket($num, $den), 'by' => $by];
@@ -123,8 +131,16 @@ class ReportService
         if ($spec['service_point'] ?? false) {
             $by['service_point'] = $this->buckets($rows, 'instrument', $agg);
         }
-        if ($withTrend && ! $opt['no_period'] && ! ($opt['skip_period'] ?? false)) {
-            $by['month'] = $this->buckets($rows, 'month', $agg);
+        if ($withTrend) {
+            if (! $opt['no_period'] && ! ($opt['skip_period'] ?? false)) {
+                $by['month'] = $this->monthTrend($rows, $agg, $spec['mode']);
+                $by['month_sex'] = $this->dimBySex($rows, 'month', $agg);
+            }
+            $by['facility_sex'] = $this->dimBySex($rows, 'facility', $agg);
+            $by['district_sex'] = $this->dimBySex($rows, 'district', $agg);
+            if ($spec['service_point'] ?? false) {
+                $by['service_point_sex'] = $this->dimBySex($rows, 'instrument', $agg);
+            }
         }
 
         return $base + ['total' => $agg($rows), 'by' => $by];
@@ -199,6 +215,94 @@ class ReportService
         ];
     }
 
+    /**
+     * Month buckets for the trend chart, each carrying a `cumulative` value
+     * alongside the plain monthly value:
+     *  - distinct: a running UNION of records seen so far (so it reconciles
+     *    exactly to the period total by the final month) - naively summing
+     *    each month's distinct count would double-count a client who
+     *    returns in a later month.
+     *  - sum / row: a plain running total (accurate as-is, since those
+     *    modes count events, not deduplicated clients).
+     */
+    private function monthTrend(array $rows, callable $agg, string $mode): array
+    {
+        $groups = [];
+        foreach ($rows as $row) {
+            $groups[$row['month'] ?? 'Unknown'][] = $row;
+        }
+        ksort($groups);
+
+        $seen = [];
+        $running = 0;
+        $out = [];
+        foreach ($groups as $label => $subset) {
+            $bucket = ['label' => (string) $label] + $agg($subset);
+
+            if ($mode === 'distinct') {
+                foreach ($subset as $row) {
+                    $seen[$row['record']] = true;
+                }
+                $bucket['cumulative'] = count($seen);
+            } elseif ($mode === 'sum') {
+                $running += (int) array_sum(array_column($subset, 'val'));
+                $bucket['cumulative'] = $running;
+            } elseif ($mode === 'row') {
+                $running += count($subset);
+                $bucket['cumulative'] = $running;
+            }
+
+            $out[] = $bucket;
+        }
+
+        return $out;
+    }
+
+    /**
+     * Value split by sex for one dimension (month, facility, district,
+     * instrument), for a grouped male/female chart alongside the plain
+     * single-series breakdown of that same dimension.
+     */
+    private function dimBySex(array $rows, string $dim, callable $agg): array
+    {
+        $groups = [];
+        foreach ($rows as $row) {
+            $groups[$row[$dim] ?? 'Unknown'][$row['sex'] ?? 'Unknown'][] = $row;
+        }
+        ksort($groups);
+
+        $out = [];
+        foreach ($groups as $label => $bySex) {
+            $out[] = [
+                'label' => (string) $label,
+                'male' => $agg($bySex['Male'] ?? [])['value'] ?? 0,
+                'female' => $agg($bySex['Female'] ?? [])['value'] ?? 0,
+            ];
+        }
+
+        return $out;
+    }
+
+    /** Same as dimBySex, for rate indicators built from a numerator/denominator pair. */
+    private function dimSexPairBuckets(array $num, array $den, string $dim): array
+    {
+        $labels = array_unique(array_column($den, $dim));
+        sort($labels);
+
+        $out = [];
+        foreach ($labels as $label) {
+            $bucket = ['label' => (string) $label];
+            foreach (['Male' => 'male', 'Female' => 'female'] as $sexLabel => $key) {
+                $n = array_filter($num, fn ($r) => $r[$dim] === $label && $r['sex'] === $sexLabel);
+                $d = array_filter($den, fn ($r) => $r[$dim] === $label && $r['sex'] === $sexLabel);
+                $bucket[$key] = $this->pairBucket($n, $d)['value'];
+            }
+            $out[] = $bucket;
+        }
+
+        return $out;
+    }
+
     private function buckets(array $rows, string $dim, callable $agg): array
     {
         $groups = [];
@@ -271,20 +375,32 @@ class ReportService
         $pls = fn () => $this->pivotSql(self::$P_ALL, ['session_date' => 'pls_date', 'conducted' => 'pls_session_conducted', 'sessions' => 'pls_number', 'reached' => 'pls_ado_number', 'support' => 'pls_support_conducted']);
 
         $htsTested = "SELECT record, test_date AS ref_date FROM ({$hts()}) p WHERE p.tested = '1'";
+        // HTS is a shared instrument (queried across all 3 projects), so the
+        // plain pivot collapses project_id away. This dedicated version keeps
+        // it, labelled as the service point, only for AHP004/005's own
+        // "service point" disaggregation - not used anywhere else.
+        $htsByServicePoint = fn () => "SELECT record, event_id, COALESCE(instance, 1) AS inst,
+                MAX(CASE WHEN field_name = 'hts_tested' THEN value END) AS tested,
+                MAX(CASE WHEN field_name = 'hts_hiv_date' THEN value END) AS test_date,
+                MAX(CASE WHEN field_name = 'hts_hiv_result' THEN value END) AS result,
+                CASE project_id WHEN 76 THEN 'FCH' WHEN 78 THEN 'OI/ART' WHEN 79 THEN 'OPD' END AS instrument
+            FROM redcap_data6
+            WHERE project_id IN (".self::$P_ALL.") AND field_name IN ('hts_tested', 'hts_hiv_date', 'hts_hiv_result')
+            GROUP BY record, event_id, COALESCE(instance, 1), project_id";
         $stiHiv = fn () => $this->pivotSql(self::$P_ALL, ['tested' => 'sti_hiv_test', 'test_date' => 'sti_visit_date', 'result' => 'sti_hiv_test_result']);
         $prepHiv = fn () => $this->pivotSql(self::$P_ALL, ['tested' => 'prep_hiv_test', 'test_date' => 'prep_visit_date', 'result' => 'prep_hiv_test_results']);
         $ancHiv = fn () => $this->pivotSql(self::$P_FCH, ['result' => 'anc_hiv_test_results', 'test_date' => 'anc_date']);
         $artrHiv = fn () => $this->pivotSql(self::$P_ART, ['first_test' => 'artr_first_hiv_test']);
-        $allTests = fn (string $where) => "SELECT record, test_date AS ref_date FROM (
-                SELECT record, test_date, result FROM ({$hts()}) a WHERE a.tested = '1'
+        $allTests = fn (string $where) => "SELECT record, test_date AS ref_date, instrument FROM (
+                SELECT record, test_date, result, 'HTS register' AS instrument FROM ({$hts()}) a WHERE a.tested = '1'
                 UNION ALL
-                SELECT record, test_date, result FROM ({$stiHiv()}) b WHERE b.tested = '1'
+                SELECT record, test_date, result, 'STI register' FROM ({$stiHiv()}) b WHERE b.tested = '1'
                 UNION ALL
-                SELECT record, test_date, result FROM ({$prepHiv()}) c WHERE c.tested = '1'
+                SELECT record, test_date, result, 'PrEP follow-up' FROM ({$prepHiv()}) c WHERE c.tested = '1'
                 UNION ALL
-                SELECT record, test_date, result FROM ({$ancHiv()}) e WHERE e.result IN ('P','N')
+                SELECT record, test_date, result, 'ANC' FROM ({$ancHiv()}) e WHERE e.result IN ('P','N')
                 UNION ALL
-                SELECT record, first_test AS test_date, 'P' AS result FROM ({$artrHiv()}) g
+                SELECT record, first_test AS test_date, 'P' AS result, 'OI/ART register' FROM ({$artrHiv()}) g
                 WHERE g.first_test REGEXP '{$dateRe}'
             ) t {$where}";
         $vlDate = "COALESCE(NULLIF(p.vl_date, ''), p.visit_date)";
@@ -303,15 +419,16 @@ class ReportService
                           JOIN (SELECT record, MIN(visit_date) AS fv FROM ({$enc}) x GROUP BY record) f ON f.record = e.record
                           WHERE e.visit_date > f.fv"],
 
-            'hiv_tested' => ['mode' => 'distinct', 'sql' => $htsTested],
-            'hiv_positive' => ['mode' => 'distinct',
-                'sql' => "SELECT record, test_date AS ref_date FROM ({$hts()}) p WHERE p.tested = '1' AND p.result = 'P'"],
+            'hiv_tested' => ['mode' => 'distinct', 'service_point' => true,
+                'sql' => "SELECT record, test_date AS ref_date, instrument FROM ({$htsByServicePoint()}) p WHERE p.tested = '1'"],
+            'hiv_positive' => ['mode' => 'distinct', 'service_point' => true,
+                'sql' => "SELECT record, test_date AS ref_date, instrument FROM ({$htsByServicePoint()}) p WHERE p.tested = '1' AND p.result = 'P'"],
             'hiv_positivity' => ['mode' => 'rate_pair',
                 'num' => "SELECT record, test_date AS ref_date FROM ({$hts()}) p WHERE p.tested = '1' AND p.result = 'P'",
                 'den' => $htsTested],
-            'hiv_tested_all' => ['mode' => 'distinct', 'sql' => $allTests('')],
-            'hiv_positive_all' => ['mode' => 'distinct', 'sql' => $allTests("WHERE t.result = 'P'")],
-            'hiv_positivity_all' => ['mode' => 'rate_pair',
+            'hiv_tested_all' => ['mode' => 'distinct', 'service_point' => true, 'sql' => $allTests('')],
+            'hiv_positive_all' => ['mode' => 'distinct', 'service_point' => true, 'sql' => $allTests("WHERE t.result = 'P'")],
+            'hiv_positivity_all' => ['mode' => 'rate_pair', 'service_point' => true,
                 'num' => $allTests("WHERE t.result = 'P'"),
                 'den' => $allTests('')],
 

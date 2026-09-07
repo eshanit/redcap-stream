@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Projects\Data6;
 
 use App\Http\Controllers\Controller;
+use App\Services\Data6\CacheVersion;
 use App\Services\Data6\ReportService;
 use App\Services\Data6\ReportWorkbook;
 use Illuminate\Http\Request;
@@ -58,7 +59,7 @@ class ReportController extends Controller
     private function cachedReport(ReportService $reports, string $from, string $to): array
     {
         return Cache::remember(
-            "data6:report:{$from}:{$to}",
+            CacheVersion::key("report:{$from}:{$to}"),
             now()->addMinutes(30),
             fn () => $reports->report($from, $to),
         );

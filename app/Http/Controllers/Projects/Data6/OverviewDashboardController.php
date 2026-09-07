@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Projects\Data6;
 
 use App\Http\Controllers\Controller;
+use App\Services\Data6\CacheVersion;
 use App\Services\Data6\SummaryService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -13,7 +14,7 @@ class OverviewDashboardController extends Controller
 {
     public function __invoke(SummaryService $summary)
     {
-        $data = Cache::remember('data6:overview', now()->addMinutes(15), fn () => $summary->compute());
+        $data = Cache::remember(CacheVersion::key('overview'), now()->addMinutes(15), fn () => $summary->compute());
 
         return Inertia::render('Data6/Overview', [
             'appTitle' => config('redcap.data6_unit.title'),

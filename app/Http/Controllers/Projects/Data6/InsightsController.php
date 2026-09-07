@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Projects\Data6;
 
 use App\Http\Controllers\Controller;
+use App\Services\Data6\CacheVersion;
 use App\Services\Data6\InsightsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -25,7 +26,7 @@ class InsightsController extends Controller
         ]);
 
         $payload = Cache::remember(
-            "data6:insights:{$validated['from']}:{$validated['to']}",
+            CacheVersion::key("insights:{$validated['from']}:{$validated['to']}"),
             now()->addMinutes(30),
             fn () => $insights->compute($validated['from'], $validated['to']),
         );
