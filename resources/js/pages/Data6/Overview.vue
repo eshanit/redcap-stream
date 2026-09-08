@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Head, Link } from '@inertiajs/vue3';
-import { Activity, ArrowRight, BarChart3, CircleAlert, Download, FileSpreadsheet, GitMerge, Lightbulb, MapPin, Users } from 'lucide-vue-next';
+import { Activity, ArrowRight, BarChart3, CircleAlert, Download, FileSpreadsheet, GitMerge, Lightbulb, Lock, MapPin, Users } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import VueApexCharts from 'vue3-apexcharts';
 import { type BreadcrumbItem } from '@/types';
 import { describeCategorical, describeTrend } from '@/composables/useChartInsights';
+import { useTier } from '@/composables/useTier';
+
+const { isPro, isProPlus, canDownload, canDownloadPdf } = useTier();
 
 interface LabelCount { label: string; count: number; }
 interface DistrictFacilityCount { district: string; facility: string; count: number; }
@@ -244,22 +247,25 @@ const trendOptions = computed(() => ({
                         <p class="mt-2 hidden text-xs text-[#60716d] print:block">Report generated {{ generatedOn }}</p>
                     </div>
                     <div class="flex flex-col gap-2 sm:flex-row print:hidden">
-                        <button class="group inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-5 py-2.5 text-xs font-bold text-[#3c605b] transition hover:bg-white" title="Opens the print dialog — choose &quot;Save as PDF&quot; as the destination" @click="downloadPdf">
+                        <button v-if="canDownloadPdf" class="group inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-5 py-2.5 text-xs font-bold text-[#3c605b] transition hover:bg-white" title="Opens the print dialog — choose &quot;Save as PDF&quot; as the destination" @click="downloadPdf">
                             <Download class="size-4" />Download PDF
                         </button>
                         <Link href="/data6/indicators" class="group inline-flex items-center gap-2 rounded-full bg-[#173b3b] px-5 py-2.5 text-xs font-bold text-white transition hover:bg-[#285655]">
                             <BarChart3 class="size-4" />AHP indicator dashboard
                             <ArrowRight class="size-3.5 transition group-hover:translate-x-0.5" />
                         </Link>
-                        <Link href="/data6/reports" class="group inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-5 py-2.5 text-xs font-bold text-[#3c605b] transition hover:bg-white">
+                        <Link v-if="isPro" href="/data6/reports" class="group inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-5 py-2.5 text-xs font-bold text-[#3c605b] transition hover:bg-white">
                             <FileSpreadsheet class="size-4" />M&amp;E reports
                             <ArrowRight class="size-3.5 transition group-hover:translate-x-0.5" />
                         </Link>
-                        <Link href="/data6/insights" class="group inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-5 py-2.5 text-xs font-bold text-[#3c605b] transition hover:bg-white">
+                        <Link v-if="isPro" href="/data6/insights" class="group inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-5 py-2.5 text-xs font-bold text-[#3c605b] transition hover:bg-white">
                             <Lightbulb class="size-4" />Insights
                             <ArrowRight class="size-3.5 transition group-hover:translate-x-0.5" />
                         </Link>
-                        <Link href="/data6/flow" class="group inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-5 py-2.5 text-xs font-bold text-[#3c605b] transition hover:bg-white">
+                        <Link v-else href="/data6/plans" class="group inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-5 py-2.5 text-xs font-bold text-[#82908a] transition hover:bg-white" title="Insights is a Pro feature — view plans">
+                            <Lock class="size-4" />Insights
+                        </Link>
+                        <Link v-if="isProPlus" href="/data6/flow" class="group inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-5 py-2.5 text-xs font-bold text-[#3c605b] transition hover:bg-white">
                             <GitMerge class="size-4" />Patient flow
                             <ArrowRight class="size-3.5 transition group-hover:translate-x-0.5" />
                         </Link>
@@ -304,9 +310,11 @@ const trendOptions = computed(() => ({
                             <p class="mt-0.5 text-[11px] text-[#788681]">Each block is one district; its facilities are shaded by size within it.</p>
                         </div>
                         <div class="flex flex-wrap items-center gap-2 print:hidden">
-                            <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadTreemap('png')"><Download class="size-3" />PNG</button>
-                            <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadTreemap('jpg')"><Download class="size-3" />JPG</button>
-                            <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadTreemapCsv"><Download class="size-3" />CSV</button>
+                            <template v-if="canDownload">
+                                <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadTreemap('png')"><Download class="size-3" />PNG</button>
+                                <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadTreemap('jpg')"><Download class="size-3" />JPG</button>
+                                <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadTreemapCsv"><Download class="size-3" />CSV</button>
+                            </template>
                             <button class="rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="showTreemapTable = !showTreemapTable">{{ showTreemapTable ? 'Show chart' : 'Show as table' }}</button>
                         </div>
                     </div>
@@ -329,9 +337,11 @@ const trendOptions = computed(() => ({
                         <div class="flex flex-wrap items-center justify-between gap-2">
                             <h2 class="text-sm font-bold text-[#244847]">Clients by facility</h2>
                             <div class="flex flex-wrap items-center gap-2 print:hidden">
-                                <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadFacilityChart('png')"><Download class="size-3" />PNG</button>
-                                <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadFacilityChart('jpg')"><Download class="size-3" />JPG</button>
-                                <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadFacilityCsv"><Download class="size-3" />CSV</button>
+                                <template v-if="canDownload">
+                                    <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadFacilityChart('png')"><Download class="size-3" />PNG</button>
+                                    <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadFacilityChart('jpg')"><Download class="size-3" />JPG</button>
+                                    <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadFacilityCsv"><Download class="size-3" />CSV</button>
+                                </template>
                                 <button class="rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="showFacilityTable = !showFacilityTable">{{ showFacilityTable ? 'Show chart' : 'Show as table' }}</button>
                             </div>
                         </div>
@@ -348,7 +358,7 @@ const trendOptions = computed(() => ({
                             <p class="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[#82908a]"><Lightbulb class="size-3 text-[#e2644b]" />Insights</p>
                             <p v-for="(para, i) in insightParagraphs(facilityInsight)" :key="i" class="text-[12.5px] leading-5 text-[#52655f]" :class="i > 0 ? 'mt-2' : ''">{{ para }}</p>
                         </div>
-                        <div class="mt-3 border-t border-[#eef0eb] pt-3 print:hidden">
+                        <div v-if="canDownload" class="mt-3 border-t border-[#eef0eb] pt-3 print:hidden">
                             <p class="mb-2 text-[10px] font-bold uppercase tracking-wider text-[#82908a]">Download record IDs per facility (CSV)</p>
                             <div class="flex flex-wrap gap-1.5">
                                 <a v-for="f in summary.by_facility" :key="f.label" :href="exportUrl('facility', f.label)"
@@ -365,9 +375,11 @@ const trendOptions = computed(() => ({
                             <div class="flex flex-wrap items-center justify-between gap-2">
                                 <h2 class="text-sm font-bold text-[#244847]">Clients by district</h2>
                                 <div class="flex flex-wrap items-center gap-2 print:hidden">
-                                    <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadDistrictChart('png')"><Download class="size-3" />PNG</button>
-                                    <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadDistrictChart('jpg')"><Download class="size-3" />JPG</button>
-                                    <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadDistrictCsv"><Download class="size-3" />CSV</button>
+                                    <template v-if="canDownload">
+                                        <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadDistrictChart('png')"><Download class="size-3" />PNG</button>
+                                        <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadDistrictChart('jpg')"><Download class="size-3" />JPG</button>
+                                        <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadDistrictCsv"><Download class="size-3" />CSV</button>
+                                    </template>
                                     <button class="rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="showDistrictTable = !showDistrictTable">{{ showDistrictTable ? 'Show chart' : 'Show as table' }}</button>
                                 </div>
                             </div>
@@ -384,7 +396,7 @@ const trendOptions = computed(() => ({
                                 <p class="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[#82908a]"><Lightbulb class="size-3 text-[#e2644b]" />Insights</p>
                                 <p v-for="(para, i) in insightParagraphs(districtInsight)" :key="i" class="text-[12.5px] leading-5 text-[#52655f]" :class="i > 0 ? 'mt-2' : ''">{{ para }}</p>
                             </div>
-                            <div class="mt-2 flex flex-wrap gap-1.5 border-t border-[#eef0eb] pt-2 print:hidden">
+                            <div v-if="canDownload" class="mt-2 flex flex-wrap gap-1.5 border-t border-[#eef0eb] pt-2 print:hidden">
                                 <a v-for="d in summary.by_district" :key="d.label" :href="exportUrl('district', d.label)"
                                     class="inline-flex items-center gap-1.5 rounded-full border border-[#cbd3cd] bg-white px-2.5 py-1 text-[11px] font-semibold text-[#3c605b] transition hover:border-[#173b3b] hover:bg-[#173b3b] hover:text-white"
                                     :title="`Download the ${d.count.toLocaleString()} record IDs for ${d.label}`">
@@ -397,9 +409,11 @@ const trendOptions = computed(() => ({
                             <div class="flex flex-wrap items-center justify-between gap-2">
                                 <h2 class="text-sm font-bold text-[#244847]">Age distribution (age today)</h2>
                                 <div class="flex flex-wrap items-center gap-2 print:hidden">
-                                    <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadAgeChart('png')"><Download class="size-3" />PNG</button>
-                                    <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadAgeChart('jpg')"><Download class="size-3" />JPG</button>
-                                    <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadAgeCsv"><Download class="size-3" />CSV</button>
+                                    <template v-if="canDownload">
+                                        <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadAgeChart('png')"><Download class="size-3" />PNG</button>
+                                        <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadAgeChart('jpg')"><Download class="size-3" />JPG</button>
+                                        <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadAgeCsv"><Download class="size-3" />CSV</button>
+                                    </template>
                                     <button class="rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="showAgeTable = !showAgeTable">{{ showAgeTable ? 'Show chart' : 'Show as table' }}</button>
                                 </div>
                             </div>
@@ -424,9 +438,11 @@ const trendOptions = computed(() => ({
                                 <p class="mt-0.5 text-[11px] text-[#788681]">A client can appear under several services — this shows utilisation, not a total.</p>
                             </div>
                             <div class="flex flex-wrap items-center gap-2 print:hidden">
-                                <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadServiceChart('png')"><Download class="size-3" />PNG</button>
-                                <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadServiceChart('jpg')"><Download class="size-3" />JPG</button>
-                                <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadServiceCsv"><Download class="size-3" />CSV</button>
+                                <template v-if="canDownload">
+                                    <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadServiceChart('png')"><Download class="size-3" />PNG</button>
+                                    <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadServiceChart('jpg')"><Download class="size-3" />JPG</button>
+                                    <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadServiceCsv"><Download class="size-3" />CSV</button>
+                                </template>
                                 <button class="rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="showServiceTable = !showServiceTable">{{ showServiceTable ? 'Show chart' : 'Show as table' }}</button>
                             </div>
                         </div>
@@ -450,9 +466,11 @@ const trendOptions = computed(() => ({
                             <div class="flex flex-wrap items-center justify-between gap-2">
                                 <h2 class="text-sm font-bold text-[#244847]">New clients first seen, by month</h2>
                                 <div v-if="summary.first_seen_trend.length" class="flex flex-wrap items-center gap-2 print:hidden">
-                                    <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadTrendChart('png')"><Download class="size-3" />PNG</button>
-                                    <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadTrendChart('jpg')"><Download class="size-3" />JPG</button>
-                                    <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadTrendCsv"><Download class="size-3" />CSV</button>
+                                    <template v-if="canDownload">
+                                        <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadTrendChart('png')"><Download class="size-3" />PNG</button>
+                                        <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadTrendChart('jpg')"><Download class="size-3" />JPG</button>
+                                        <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadTrendCsv"><Download class="size-3" />CSV</button>
+                                    </template>
                                     <button class="rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="showTrendTable = !showTrendTable">{{ showTrendTable ? 'Show chart' : 'Show as table' }}</button>
                                 </div>
                             </div>
@@ -474,9 +492,11 @@ const trendOptions = computed(() => ({
                             <div class="flex flex-wrap items-center justify-between gap-2">
                                 <h2 class="text-sm font-bold text-[#244847]">Client profile</h2>
                                 <div class="flex flex-wrap items-center gap-2 print:hidden">
-                                    <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadProfileChart('png')"><Download class="size-3" />PNG</button>
-                                    <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadProfileChart('jpg')"><Download class="size-3" />JPG</button>
-                                    <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadProfileCsv"><Download class="size-3" />CSV</button>
+                                    <template v-if="canDownload">
+                                        <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadProfileChart('png')"><Download class="size-3" />PNG</button>
+                                        <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadProfileChart('jpg')"><Download class="size-3" />JPG</button>
+                                        <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadProfileCsv"><Download class="size-3" />CSV</button>
+                                    </template>
                                     <button class="rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="showProfileTable = !showProfileTable">{{ showProfileTable ? 'Show chart' : 'Show as table' }}</button>
                                 </div>
                             </div>
@@ -528,7 +548,7 @@ const trendOptions = computed(() => ({
                 </section>
 
                 <!-- Onward navigation -->
-                <section class="mt-6 grid gap-3 sm:grid-cols-3 print:hidden">
+                <section class="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4 print:hidden">
                     <Link href="/data6/indicators" class="group flex items-center justify-between border border-[#d9ded7] bg-[#173b3b] p-5 text-white transition hover:bg-[#285655]">
                         <div>
                             <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-[#e9a18e]">For the M&E officer</p>
@@ -537,7 +557,7 @@ const trendOptions = computed(() => ({
                         </div>
                         <ArrowRight class="size-5 shrink-0 text-[#e9a18e] transition group-hover:translate-x-1" />
                     </Link>
-                    <Link href="/data6/insights" class="group flex items-center justify-between border border-[#d9ded7] bg-[#fcfcfb] p-5 transition hover:bg-white">
+                    <Link v-if="isPro" href="/data6/insights" class="group flex items-center justify-between border border-[#d9ded7] bg-[#fcfcfb] p-5 transition hover:bg-white">
                         <div>
                             <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-[#e2644b]">For the programme manager</p>
                             <h3 class="mt-1 font-serif text-xl text-[#173b3b]">Cross-service insights</h3>
@@ -545,13 +565,45 @@ const trendOptions = computed(() => ({
                         </div>
                         <ArrowRight class="size-5 shrink-0 text-[#a6b1aa] transition group-hover:translate-x-1" />
                     </Link>
-                    <Link href="/data6/flow" class="group flex items-center justify-between border border-[#d9ded7] bg-[#fcfcfb] p-5 transition hover:bg-white">
+                    <Link v-else href="/data6/plans" class="group flex items-center justify-between border border-[#d9ded7] bg-[#fcfcfb] p-5 opacity-70 transition hover:bg-white">
+                        <div>
+                            <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-[#e2644b]">Pro feature</p>
+                            <h3 class="mt-1 font-serif text-xl text-[#173b3b]">Cross-service insights</h3>
+                            <p class="mt-1 text-xs text-[#788681]">Linkage, co-utilisation and journeys. Upgrade to Pro to unlock this page.</p>
+                        </div>
+                        <Lock class="size-5 shrink-0 text-[#a6b1aa]" />
+                    </Link>
+                    <Link v-if="isProPlus" href="/data6/flow" class="group flex items-center justify-between border border-[#d9ded7] bg-[#fcfcfb] p-5 transition hover:bg-white">
                         <div>
                             <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-[#e2644b]">For investigation</p>
                             <h3 class="mt-1 font-serif text-xl text-[#173b3b]">Patient flow &amp; tracking</h3>
                             <p class="mt-1 text-xs text-[#788681]">Follow one client across services; review cross-project identity links.</p>
                         </div>
                         <ArrowRight class="size-5 shrink-0 text-[#a6b1aa] transition group-hover:translate-x-1" />
+                    </Link>
+                    <Link v-else href="/data6/plans" class="group flex items-center justify-between border border-[#d9ded7] bg-[#fcfcfb] p-5 opacity-70 transition hover:bg-white">
+                        <div>
+                            <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-[#e2644b]">Pro+ feature</p>
+                            <h3 class="mt-1 font-serif text-xl text-[#173b3b]">Patient flow &amp; tracking</h3>
+                            <p class="mt-1 text-xs text-[#788681]">Follow one client across services. Upgrade to Pro+ to unlock this page.</p>
+                        </div>
+                        <Lock class="size-5 shrink-0 text-[#a6b1aa]" />
+                    </Link>
+                    <Link v-if="isProPlus" href="/data6/outreach" class="group flex items-center justify-between border border-[#d9ded7] bg-[#fcfcfb] p-5 transition hover:bg-white">
+                        <div>
+                            <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-[#e2644b]">For outreach</p>
+                            <h3 class="mt-1 font-serif text-xl text-[#173b3b]">Outreach worklist</h3>
+                            <p class="mt-1 text-xs text-[#788681]">Who's overdue right now across ART, PrEP and PNC — ready to chase up.</p>
+                        </div>
+                        <ArrowRight class="size-5 shrink-0 text-[#a6b1aa] transition group-hover:translate-x-1" />
+                    </Link>
+                    <Link v-else href="/data6/plans" class="group flex items-center justify-between border border-[#d9ded7] bg-[#fcfcfb] p-5 opacity-70 transition hover:bg-white">
+                        <div>
+                            <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-[#e2644b]">Pro+ feature</p>
+                            <h3 class="mt-1 font-serif text-xl text-[#173b3b]">Outreach worklist</h3>
+                            <p class="mt-1 text-xs text-[#788681]">Who's overdue right now across ART, PrEP and PNC. Upgrade to Pro+ to unlock this page.</p>
+                        </div>
+                        <Lock class="size-5 shrink-0 text-[#a6b1aa]" />
                     </Link>
                 </section>
             </div>

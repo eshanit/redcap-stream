@@ -2,10 +2,13 @@
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Head } from '@inertiajs/vue3';
 import { Link } from '@inertiajs/vue3';
-import { AlertTriangle, ArrowRight, CircleAlert, Download, FileSpreadsheet, Info, Lightbulb, RefreshCw } from 'lucide-vue-next';
+import { AlertTriangle, ArrowRight, CircleAlert, Download, FileSpreadsheet, Info, Lightbulb, Lock, RefreshCw } from 'lucide-vue-next';
 import { computed, onMounted, ref } from 'vue';
 import VueApexCharts from 'vue3-apexcharts';
 import { type BreadcrumbItem } from '@/types';
+import { useTier } from '@/composables/useTier';
+
+const { isPro, canDownload, canDownloadPdf } = useTier();
 
 interface IndicatorMeta {
     id: number;
@@ -213,16 +216,20 @@ function downloadPdf(): void {
                         </p>
                     </div>
                     <div class="flex items-center gap-2 print:hidden">
-                        <Link href="/data6/insights" class="inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-4 py-2 text-xs font-bold text-[#3c605b] transition hover:bg-white">
+                        <Link v-if="isPro" href="/data6/insights" class="inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-4 py-2 text-xs font-bold text-[#3c605b] transition hover:bg-white">
                             <Lightbulb class="size-3.5" />Insights
                         </Link>
-                        <Link href="/data6/reports" class="inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-4 py-2 text-xs font-bold text-[#3c605b] transition hover:bg-white">
+                        <Link v-else href="/data6/plans" class="inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-4 py-2 text-xs font-bold text-[#82908a] transition hover:bg-white" title="Insights is a Pro feature — view plans">
+                            <Lock class="size-3.5" />Insights
+                        </Link>
+                        <Link v-if="isPro" href="/data6/reports" class="inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-4 py-2 text-xs font-bold text-[#3c605b] transition hover:bg-white">
                             <FileSpreadsheet class="size-3.5" />M&amp;E reports
                         </Link>
-                        <button class="inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-4 py-2 text-xs font-bold text-[#3c605b] transition hover:bg-white" @click="exportCsv">
+                        <button v-if="canDownload" class="inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-4 py-2 text-xs font-bold text-[#3c605b] transition hover:bg-white" @click="exportCsv">
                             <Download class="size-3.5" />Export CSV
                         </button>
                         <button
+                            v-if="canDownloadPdf"
                             class="inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-4 py-2 text-xs font-bold text-[#3c605b] transition hover:bg-white"
                             title="Opens the print dialog — choose &quot;Save as PDF&quot; as the destination"
                             @click="downloadPdf">

@@ -115,6 +115,9 @@ function downloadPdf(): void {
                         <button class="inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-4 py-2.5 text-xs font-bold text-[#3c605b] transition hover:bg-white" title="Opens the print dialog — choose &quot;Save as PDF&quot; as the destination" @click="downloadPdf">
                             <Download class="size-4" />Download PDF
                         </button>
+                        <Link href="/data6/outreach" class="inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-4 py-2.5 text-xs font-bold text-[#3c605b] transition hover:bg-white">
+                            <ClipboardList class="size-4" />Outreach worklist
+                        </Link>
                         <span class="inline-flex items-center gap-2 rounded-full border border-[#c7d8ce] bg-[#e7f0e9] px-3 py-2 font-semibold text-[#286057]"><span class="h-2 w-2 rounded-full bg-[#3b9a70]" />Tracking layer ready</span><button class="rounded-full border border-[#bdc9c3] p-2.5 text-[#3c605b] transition hover:bg-white" title="Refresh tracking data"><RefreshCw class="size-4" /></button></div>
                 </header>
 

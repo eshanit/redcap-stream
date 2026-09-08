@@ -6,6 +6,9 @@ import { computed, onMounted, ref } from 'vue';
 import VueApexCharts from 'vue3-apexcharts';
 import { type BreadcrumbItem } from '@/types';
 import { describeCategorical } from '@/composables/useChartInsights';
+import { useTier } from '@/composables/useTier';
+
+const { canDownload, canDownloadPdf } = useTier();
 
 interface LabelCount { label: string; count: number; pct?: number; dateless?: boolean; }
 interface Step { label: string; count: number; pct_of_previous: number | null; }
@@ -369,7 +372,7 @@ function downloadPdf(): void {
                         <p class="mt-2 hidden text-xs text-[#60716d] print:block">Report generated {{ generatedOn }}, covering {{ from }} → {{ to }}</p>
                     </div>
                     <div class="flex items-center gap-2 print:hidden">
-                        <button class="inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-5 py-2.5 text-xs font-bold text-[#3c605b] transition hover:bg-white" title="Opens the print dialog — choose &quot;Save as PDF&quot; as the destination" @click="downloadPdf">
+                        <button v-if="canDownloadPdf" class="inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-5 py-2.5 text-xs font-bold text-[#3c605b] transition hover:bg-white" title="Opens the print dialog — choose &quot;Save as PDF&quot; as the destination" @click="downloadPdf">
                             <Download class="size-4" />Download PDF
                         </button>
                         <button class="rounded-full border border-[#bdc9c3] p-2.5 text-[#3c605b] transition hover:bg-white" title="Refresh" @click="load"><RefreshCw class="size-4" :class="loading ? 'animate-spin' : ''" /></button>
@@ -408,9 +411,11 @@ function downloadPdf(): void {
                                 <p class="mt-1 text-xs text-[#788681]">Answers: of adolescents who tested positive, how many got into the ART programme — and how fast?</p>
                             </div>
                             <div class="flex flex-wrap items-center gap-2 print:hidden">
-                                <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadCascadeChart('png')"><Download class="size-3" />PNG</button>
-                                <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadCascadeChart('jpg')"><Download class="size-3" />JPG</button>
-                                <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadCascadeCsv"><Download class="size-3" />CSV</button>
+                                <template v-if="canDownload">
+                                    <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadCascadeChart('png')"><Download class="size-3" />PNG</button>
+                                    <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadCascadeChart('jpg')"><Download class="size-3" />JPG</button>
+                                    <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadCascadeCsv"><Download class="size-3" />CSV</button>
+                                </template>
                                 <button class="rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="showCascadeTable = !showCascadeTable">{{ showCascadeTable ? 'Show chart' : 'Show as table' }}</button>
                             </div>
                         </div>
@@ -436,9 +441,11 @@ function downloadPdf(): void {
                                     <div class="flex flex-wrap items-center justify-between gap-2">
                                         <h3 class="text-xs font-bold text-[#244847]">Time from positive test to ART/HIV care</h3>
                                         <div class="flex flex-wrap items-center gap-1.5 print:hidden">
-                                            <button class="inline-flex items-center gap-1 rounded-full border border-[#bdc9c3] px-2 py-0.5 text-[10px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadTimeToArtChart('png')"><Download class="size-2.5" />PNG</button>
-                                            <button class="inline-flex items-center gap-1 rounded-full border border-[#bdc9c3] px-2 py-0.5 text-[10px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadTimeToArtChart('jpg')"><Download class="size-2.5" />JPG</button>
-                                            <button class="inline-flex items-center gap-1 rounded-full border border-[#bdc9c3] px-2 py-0.5 text-[10px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadTimeToArtCsv"><Download class="size-2.5" />CSV</button>
+                                            <template v-if="canDownload">
+                                                <button class="inline-flex items-center gap-1 rounded-full border border-[#bdc9c3] px-2 py-0.5 text-[10px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadTimeToArtChart('png')"><Download class="size-2.5" />PNG</button>
+                                                <button class="inline-flex items-center gap-1 rounded-full border border-[#bdc9c3] px-2 py-0.5 text-[10px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadTimeToArtChart('jpg')"><Download class="size-2.5" />JPG</button>
+                                                <button class="inline-flex items-center gap-1 rounded-full border border-[#bdc9c3] px-2 py-0.5 text-[10px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadTimeToArtCsv"><Download class="size-2.5" />CSV</button>
+                                            </template>
                                             <button class="rounded-full border border-[#bdc9c3] px-2 py-0.5 text-[10px] font-bold text-[#3c605b] transition hover:bg-white" @click="showTimeToArtTable = !showTimeToArtTable">{{ showTimeToArtTable ? 'Chart' : 'Table' }}</button>
                                         </div>
                                     </div>
@@ -451,7 +458,7 @@ function downloadPdf(): void {
                                     <template v-if="data.hiv_cascade.time_to_art_distribution && data.hiv_cascade.time_to_art_distribution.n >= 5">
                                         <div class="mt-3 flex flex-wrap items-center justify-between gap-2 print:break-inside-avoid">
                                             <h3 class="text-xs font-bold text-[#244847]">Real spread (n={{ data.hiv_cascade.time_to_art_distribution.n }})</h3>
-                                            <div class="flex flex-wrap items-center gap-1.5 print:hidden">
+                                            <div v-if="canDownload" class="flex flex-wrap items-center gap-1.5 print:hidden">
                                                 <button class="inline-flex items-center gap-1 rounded-full border border-[#bdc9c3] px-2 py-0.5 text-[10px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadTimeToArtBoxChart('png')"><Download class="size-2.5" />PNG</button>
                                                 <button class="inline-flex items-center gap-1 rounded-full border border-[#bdc9c3] px-2 py-0.5 text-[10px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadTimeToArtBoxChart('jpg')"><Download class="size-2.5" />JPG</button>
                                                 <button class="inline-flex items-center gap-1 rounded-full border border-[#bdc9c3] px-2 py-0.5 text-[10px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadTimeToArtBoxCsv"><Download class="size-2.5" />CSV</button>
@@ -500,9 +507,11 @@ function downloadPdf(): void {
                                 <p class="mt-1 text-xs text-[#788681]">Read across a row: of adolescents who used the row service, the % who also used each column service. Mental health, health education and counselling are all-time access flags (no date on those forms).</p>
                             </div>
                             <div class="flex flex-wrap items-center gap-2 print:hidden">
-                                <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadHeatmapChart('png')"><Download class="size-3" />PNG</button>
-                                <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadHeatmapChart('jpg')"><Download class="size-3" />JPG</button>
-                                <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadHeatmapCsv"><Download class="size-3" />CSV</button>
+                                <template v-if="canDownload">
+                                    <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadHeatmapChart('png')"><Download class="size-3" />PNG</button>
+                                    <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadHeatmapChart('jpg')"><Download class="size-3" />JPG</button>
+                                    <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadHeatmapCsv"><Download class="size-3" />CSV</button>
+                                </template>
                                 <button class="shrink-0 rounded-full border border-[#bdc9c3] px-3 py-1.5 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="showHeatmapTable = !showHeatmapTable">
                                     {{ showHeatmapTable ? 'Show heatmap' : 'Show as table' }}
                                 </button>
@@ -540,9 +549,11 @@ function downloadPdf(): void {
                             <div class="flex flex-wrap items-center justify-between gap-2">
                                 <h2 class="text-sm font-bold text-[#244847]">Entry points for new adolescents</h2>
                                 <div v-if="data.entry_points.services.length" class="flex flex-wrap items-center gap-1.5 print:hidden">
-                                    <button class="inline-flex items-center gap-1 rounded-full border border-[#bdc9c3] px-2 py-0.5 text-[10px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadEntryChart('png')"><Download class="size-2.5" />PNG</button>
-                                    <button class="inline-flex items-center gap-1 rounded-full border border-[#bdc9c3] px-2 py-0.5 text-[10px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadEntryChart('jpg')"><Download class="size-2.5" />JPG</button>
-                                    <button class="inline-flex items-center gap-1 rounded-full border border-[#bdc9c3] px-2 py-0.5 text-[10px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadEntryCsv"><Download class="size-2.5" />CSV</button>
+                                    <template v-if="canDownload">
+                                        <button class="inline-flex items-center gap-1 rounded-full border border-[#bdc9c3] px-2 py-0.5 text-[10px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadEntryChart('png')"><Download class="size-2.5" />PNG</button>
+                                        <button class="inline-flex items-center gap-1 rounded-full border border-[#bdc9c3] px-2 py-0.5 text-[10px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadEntryChart('jpg')"><Download class="size-2.5" />JPG</button>
+                                        <button class="inline-flex items-center gap-1 rounded-full border border-[#bdc9c3] px-2 py-0.5 text-[10px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadEntryCsv"><Download class="size-2.5" />CSV</button>
+                                    </template>
                                     <button class="rounded-full border border-[#bdc9c3] px-2 py-0.5 text-[10px] font-bold text-[#3c605b] transition hover:bg-white" @click="showEntryTable = !showEntryTable">{{ showEntryTable ? 'Chart' : 'Table' }}</button>
                                 </div>
                             </div>
@@ -561,9 +572,11 @@ function downloadPdf(): void {
                             <div class="flex flex-wrap items-center justify-between gap-2">
                                 <h2 class="text-sm font-bold text-[#244847]">Most common service-to-service moves</h2>
                                 <div v-if="data.transitions.top.length" class="flex flex-wrap items-center gap-1.5 print:hidden">
-                                    <button class="inline-flex items-center gap-1 rounded-full border border-[#bdc9c3] px-2 py-0.5 text-[10px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadTransitionsChart('png')"><Download class="size-2.5" />PNG</button>
-                                    <button class="inline-flex items-center gap-1 rounded-full border border-[#bdc9c3] px-2 py-0.5 text-[10px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadTransitionsChart('jpg')"><Download class="size-2.5" />JPG</button>
-                                    <button class="inline-flex items-center gap-1 rounded-full border border-[#bdc9c3] px-2 py-0.5 text-[10px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadTransitionsCsv"><Download class="size-2.5" />CSV</button>
+                                    <template v-if="canDownload">
+                                        <button class="inline-flex items-center gap-1 rounded-full border border-[#bdc9c3] px-2 py-0.5 text-[10px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadTransitionsChart('png')"><Download class="size-2.5" />PNG</button>
+                                        <button class="inline-flex items-center gap-1 rounded-full border border-[#bdc9c3] px-2 py-0.5 text-[10px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadTransitionsChart('jpg')"><Download class="size-2.5" />JPG</button>
+                                        <button class="inline-flex items-center gap-1 rounded-full border border-[#bdc9c3] px-2 py-0.5 text-[10px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadTransitionsCsv"><Download class="size-2.5" />CSV</button>
+                                    </template>
                                     <button class="rounded-full border border-[#bdc9c3] px-2 py-0.5 text-[10px] font-bold text-[#3c605b] transition hover:bg-white" @click="showTransitionsTable = !showTransitionsTable">{{ showTransitionsTable ? 'Chart' : 'Table' }}</button>
                                 </div>
                             </div>
@@ -583,9 +596,11 @@ function downloadPdf(): void {
                             <div class="flex flex-wrap items-center justify-between gap-2">
                                 <h2 class="text-sm font-bold text-[#244847]">Engagement</h2>
                                 <div class="flex flex-wrap items-center gap-1.5 print:hidden">
-                                    <button class="inline-flex items-center gap-1 rounded-full border border-[#bdc9c3] px-2 py-0.5 text-[10px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadEngagementChart('png')"><Download class="size-2.5" />PNG</button>
-                                    <button class="inline-flex items-center gap-1 rounded-full border border-[#bdc9c3] px-2 py-0.5 text-[10px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadEngagementChart('jpg')"><Download class="size-2.5" />JPG</button>
-                                    <button class="inline-flex items-center gap-1 rounded-full border border-[#bdc9c3] px-2 py-0.5 text-[10px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadEngagementCsv"><Download class="size-2.5" />CSV</button>
+                                    <template v-if="canDownload">
+                                        <button class="inline-flex items-center gap-1 rounded-full border border-[#bdc9c3] px-2 py-0.5 text-[10px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadEngagementChart('png')"><Download class="size-2.5" />PNG</button>
+                                        <button class="inline-flex items-center gap-1 rounded-full border border-[#bdc9c3] px-2 py-0.5 text-[10px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadEngagementChart('jpg')"><Download class="size-2.5" />JPG</button>
+                                        <button class="inline-flex items-center gap-1 rounded-full border border-[#bdc9c3] px-2 py-0.5 text-[10px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadEngagementCsv"><Download class="size-2.5" />CSV</button>
+                                    </template>
                                     <button class="rounded-full border border-[#bdc9c3] px-2 py-0.5 text-[10px] font-bold text-[#3c605b] transition hover:bg-white" @click="showEngagementTable = !showEngagementTable">{{ showEngagementTable ? 'Chart' : 'Table' }}</button>
                                 </div>
                             </div>

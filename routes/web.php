@@ -10,6 +10,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Projects\Data6\AnalysisController as Data6AnalysisController;
 use App\Http\Controllers\Projects\Data6\IndicatorDashboardController as Data6IndicatorDashboardController;
 use App\Http\Controllers\Projects\Data6\InsightsController as Data6InsightsController;
+use App\Http\Controllers\Projects\Data6\OutreachController as Data6OutreachController;
 use App\Http\Controllers\Projects\Data6\OverviewDashboardController as Data6OverviewDashboardController;
 use App\Http\Controllers\Projects\Data6\ProjectDashboardController as Data6ProjectDashboardController;
 use App\Http\Controllers\Projects\Data6\ReportController as Data6ReportController;
@@ -34,19 +35,30 @@ Route::middleware('auth')->group(function () {
     })->name('under.construction');
     Route::get('project/{project_id}/questionnaire/{field_name}/data', GetFieldNameData::class)->name('item.data');
 
+    Route::get('data6/plans', function () {
+        return Inertia::render('Data6/Plans');
+    })->name('data6.plans');
+
     Route::get('data6', Data6OverviewDashboardController::class)->name('data6.dashboard');
     Route::get('data6/indicators', [Data6IndicatorDashboardController::class, 'index'])->name('data6.indicators');
     Route::get('data6/indicators/{code}', [Data6IndicatorDashboardController::class, 'show'])
         ->where('code', '[A-Za-z0-9]+')->name('data6.indicators.show');
-    Route::get('data6/reports', [Data6ReportController::class, 'index'])->name('data6.reports');
-    Route::get('data6/insights', [Data6InsightsController::class, 'index'])->name('data6.insights');
-    Route::get('data6/flow', Data6ProjectDashboardController::class)->name('data6.flow');
-    // Record IDs (e.g. "MUS/2026/00058") contain literal slashes, so
-    // {record} must be the route's last segment with a greedy `.*` match -
-    // Laravel's standard pattern for a slash-containing trailing param.
-    Route::get('data6/flow/{record}', [Data6ProjectDashboardController::class, 'showTimeline'])
-        ->where('record', '.*')->name('data6.flow.patient');
-    Route::get('data6/project/{project_id}', Data6ProjectDashboardController::class)->name('data6.project.dashboard');
+
+    Route::middleware('tier:pro')->group(function () {
+        Route::get('data6/insights', [Data6InsightsController::class, 'index'])->name('data6.insights');
+        Route::get('data6/reports', [Data6ReportController::class, 'index'])->name('data6.reports');
+    });
+
+    Route::middleware('tier:pro_plus')->group(function () {
+        Route::get('data6/flow', Data6ProjectDashboardController::class)->name('data6.flow');
+        // Record IDs (e.g. "MUS/2026/00058") contain literal slashes, so
+        // {record} must be the route's last segment with a greedy `.*` match -
+        // Laravel's standard pattern for a slash-containing trailing param.
+        Route::get('data6/flow/{record}', [Data6ProjectDashboardController::class, 'showTimeline'])
+            ->where('record', '.*')->name('data6.flow.patient');
+        Route::get('data6/project/{project_id}', Data6ProjectDashboardController::class)->name('data6.project.dashboard');
+        Route::get('data6/outreach', [Data6OutreachController::class, 'index'])->name('data6.outreach');
+    });
 
     // Project NCD
     Route::group(['as' => 'ncd_booklet_20249fea.', 'prefix' => 'ncd'], function () {
@@ -179,22 +191,30 @@ Route::middleware('auth')->group(function () {
     Route::group(['prefix' => 'api'], function () {
         Route::get('data6/indicators', [Data6IndicatorDashboardController::class, 'data'])
             ->name('api.data6.indicators');
-        Route::get('data6/records-export', [Data6OverviewDashboardController::class, 'exportRecords'])
-            ->name('api.data6.records.export');
         Route::get('data6/indicators/{code}/deep', [Data6IndicatorDashboardController::class, 'deepDive'])
             ->where('code', '[A-Za-z0-9]+')->name('api.data6.indicators.deep');
         Route::get('data6/analysis/art-cascade', [Data6AnalysisController::class, 'artCascade'])
             ->name('api.data6.analysis.art_cascade');
         Route::get('data6/analysis/hts-reconciliation', [Data6AnalysisController::class, 'htsReconciliation'])
             ->name('api.data6.analysis.hts_reconciliation');
-        Route::get('data6/reports', [Data6ReportController::class, 'data'])
-            ->name('api.data6.reports.data');
-        Route::get('data6/insights', [Data6InsightsController::class, 'data'])
-            ->name('api.data6.insights.data');
-        Route::get('data6/reports/excel', [Data6ReportController::class, 'excel'])
-            ->name('api.data6.reports.excel');
-        Route::get('data6/report', [Data6ProjectDashboardController::class, 'report'])
-            ->name('api.data6.report');
+        Route::middleware('tier:pro')->group(function () {
+            Route::get('data6/insights', [Data6InsightsController::class, 'data'])
+                ->name('api.data6.insights.data');
+            Route::get('data6/records-export', [Data6OverviewDashboardController::class, 'exportRecords'])
+                ->name('api.data6.records.export');
+            Route::get('data6/reports', [Data6ReportController::class, 'data'])
+                ->name('api.data6.reports.data');
+            Route::get('data6/reports/excel', [Data6ReportController::class, 'excel'])
+                ->name('api.data6.reports.excel');
+        });
+
+        Route::middleware('tier:pro_plus')->group(function () {
+            Route::get('data6/report', [Data6ProjectDashboardController::class, 'report'])
+                ->name('api.data6.report');
+            Route::get('data6/outreach', [Data6OutreachController::class, 'data'])
+                ->name('api.data6.outreach.data');
+        });
+
         Route::get('project/{project_id}/appointment_reviews/all_visits', [ReviewController::class, 'getAllVisits'])->name('api.appointment.reviews.all_visits');
         Route::get('project/{project_id}/appointment_reviews/latest_visits', [ReviewController::class, 'getLatestVisits'])->name('api.appointment.reviews.latest_visits');
         Route::get('project/{project_id}/appointment_reviews/upcoming', [ReviewController::class, 'getUpcoming'])->name('api.appointment.reviews.upcoming');

@@ -6,8 +6,11 @@ import { computed, onMounted, ref } from 'vue';
 import VueApexCharts from 'vue3-apexcharts';
 import { type BreadcrumbItem } from '@/types';
 import { describeCategorical, describeSexSplit, describeTrend, type Unit } from '@/composables/useChartInsights';
+import { useTier } from '@/composables/useTier';
 import ArtCascadeAnalysis from '@/pages/Data6/analysis/ArtCascadeAnalysis.vue';
 import HtsReconciliationAnalysis from '@/pages/Data6/analysis/HtsReconciliationAnalysis.vue';
+
+const { canDownload, canDownloadPdf } = useTier();
 
 interface Bucket { label: string; value: number | null; numerator?: number; denominator?: number; cumulative?: number; }
 interface SexBucket { label: string; male: number | null; female: number | null; }
@@ -440,6 +443,7 @@ const statusBadges: Record<string, { label: string; cls: string }> = {
                     </div>
                     <div class="flex items-center gap-2 print:hidden">
                         <button
+                            v-if="canDownloadPdf"
                             class="inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-4 py-2 text-xs font-bold text-[#3c605b] transition hover:bg-white"
                             title="Opens the print dialog — choose &quot;Save as PDF&quot; as the destination"
                             @click="downloadPdf">
@@ -475,8 +479,8 @@ const statusBadges: Record<string, { label: string; cls: string }> = {
                                 <span class="rounded-full border border-[#cbd3cd] bg-white px-3 py-1 text-[11px] font-bold text-[#55706a]">
                                     {{ cumulativeLabel }}: <span class="text-[#173b3b]">{{ cumulativeText }}</span>
                                 </span>
-                                <span class="mx-1 h-4 w-px bg-[#d9ded7] print:hidden" />
-                                <div class="flex flex-wrap items-center gap-2 print:hidden">
+                                <span v-if="canDownload" class="mx-1 h-4 w-px bg-[#d9ded7] print:hidden" />
+                                <div v-if="canDownload" class="flex flex-wrap items-center gap-2 print:hidden">
                                 <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadChart('png')">
                                     <Download class="size-3" />PNG
                                 </button>
@@ -499,7 +503,7 @@ const statusBadges: Record<string, { label: string; cls: string }> = {
                     <section v-if="showSexTrend" class="mt-4 border border-[#d9ded7] bg-[#fcfcfb] p-5 print:break-inside-avoid">
                         <div class="flex flex-wrap items-center justify-between gap-3">
                             <h2 class="text-sm font-bold text-[#244847]">Monthly trend by sex</h2>
-                            <div class="flex flex-wrap items-center gap-2 print:hidden">
+                            <div v-if="canDownload" class="flex flex-wrap items-center gap-2 print:hidden">
                                 <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadSexChart('png')">
                                     <Download class="size-3" />PNG
                                 </button>
@@ -524,7 +528,7 @@ const statusBadges: Record<string, { label: string; cls: string }> = {
                             <div class="border border-[#d9ded7] bg-[#fcfcfb] p-5 print:break-inside-avoid">
                                 <div class="flex flex-wrap items-center justify-between gap-3">
                                     <h2 class="text-sm font-bold text-[#244847]">By facility</h2>
-                                    <div v-if="buckets('facility').length" class="flex flex-wrap items-center gap-2 print:hidden">
+                                    <div v-if="buckets('facility').length && canDownload" class="flex flex-wrap items-center gap-2 print:hidden">
                                         <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadFacilityChart('png')"><Download class="size-3" />PNG</button>
                                         <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadFacilityChart('jpg')"><Download class="size-3" />JPG</button>
                                         <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadBucketCsv(buckets('facility'), 'Facility', 'facility')"><Download class="size-3" />CSV</button>
@@ -541,7 +545,7 @@ const statusBadges: Record<string, { label: string; cls: string }> = {
                             <div v-if="hasSexDim && facilitySex.length" class="border border-[#d9ded7] bg-[#fcfcfb] p-5 print:break-inside-avoid">
                                 <div class="flex flex-wrap items-center justify-between gap-3">
                                     <h2 class="text-sm font-bold text-[#244847]">By facility, by sex</h2>
-                                    <div class="flex flex-wrap items-center gap-2 print:hidden">
+                                    <div v-if="canDownload" class="flex flex-wrap items-center gap-2 print:hidden">
                                         <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadFacilitySexChart('png')"><Download class="size-3" />PNG</button>
                                         <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadFacilitySexChart('jpg')"><Download class="size-3" />JPG</button>
                                         <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadSexBucketCsv(facilitySex, 'Facility', 'facility_by_sex')"><Download class="size-3" />CSV</button>
@@ -559,7 +563,7 @@ const statusBadges: Record<string, { label: string; cls: string }> = {
                             <div class="border border-[#d9ded7] bg-[#fcfcfb] p-5 print:break-inside-avoid">
                                 <div class="flex flex-wrap items-center justify-between gap-3">
                                     <h2 class="text-sm font-bold text-[#244847]">By district</h2>
-                                    <div v-if="buckets('district').length" class="flex flex-wrap items-center gap-2 print:hidden">
+                                    <div v-if="buckets('district').length && canDownload" class="flex flex-wrap items-center gap-2 print:hidden">
                                         <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadDistrictChart('png')"><Download class="size-3" />PNG</button>
                                         <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadDistrictChart('jpg')"><Download class="size-3" />JPG</button>
                                         <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadBucketCsv(buckets('district'), 'District', 'district')"><Download class="size-3" />CSV</button>
@@ -576,7 +580,7 @@ const statusBadges: Record<string, { label: string; cls: string }> = {
                             <div v-if="hasSexDim && districtSex.length" class="border border-[#d9ded7] bg-[#fcfcfb] p-5 print:break-inside-avoid">
                                 <div class="flex flex-wrap items-center justify-between gap-3">
                                     <h2 class="text-sm font-bold text-[#244847]">By district, by sex</h2>
-                                    <div class="flex flex-wrap items-center gap-2 print:hidden">
+                                    <div v-if="canDownload" class="flex flex-wrap items-center gap-2 print:hidden">
                                         <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadDistrictSexChart('png')"><Download class="size-3" />PNG</button>
                                         <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadDistrictSexChart('jpg')"><Download class="size-3" />JPG</button>
                                         <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadSexBucketCsv(districtSex, 'District', 'district_by_sex')"><Download class="size-3" />CSV</button>
@@ -621,7 +625,7 @@ const statusBadges: Record<string, { label: string; cls: string }> = {
                     <section v-if="buckets('service_point').length" class="mt-4 border border-[#d9ded7] bg-[#fcfcfb] p-5 print:break-inside-avoid">
                         <div class="flex flex-wrap items-center justify-between gap-3">
                             <h2 class="text-sm font-bold text-[#244847]">By service point</h2>
-                            <div class="flex flex-wrap items-center gap-2 print:hidden">
+                            <div v-if="canDownload" class="flex flex-wrap items-center gap-2 print:hidden">
                                 <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadServicePointChart('png')"><Download class="size-3" />PNG</button>
                                 <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadServicePointChart('jpg')"><Download class="size-3" />JPG</button>
                                 <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadBucketCsv(buckets('service_point'), 'Service point', 'service_point')"><Download class="size-3" />CSV</button>
@@ -638,7 +642,7 @@ const statusBadges: Record<string, { label: string; cls: string }> = {
                     <section v-if="hasSexDim && servicePointSex.length" class="mt-4 border border-[#d9ded7] bg-[#fcfcfb] p-5 print:break-inside-avoid">
                         <div class="flex flex-wrap items-center justify-between gap-3">
                             <h2 class="text-sm font-bold text-[#244847]">By service point, by sex</h2>
-                            <div class="flex flex-wrap items-center gap-2 print:hidden">
+                            <div v-if="canDownload" class="flex flex-wrap items-center gap-2 print:hidden">
                                 <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadServicePointSexChart('png')"><Download class="size-3" />PNG</button>
                                 <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadServicePointSexChart('jpg')"><Download class="size-3" />JPG</button>
                                 <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadSexBucketCsv(servicePointSex, 'Service point', 'service_point_by_sex')"><Download class="size-3" />CSV</button>

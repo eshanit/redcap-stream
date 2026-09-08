@@ -24,12 +24,16 @@ export interface SharedData extends PageProps {
     auth: Auth;
     ziggy: Config & { location: string };
     sidebarOpen: boolean;
+    flash: { error: string | null };
 }
+
+export type UserTier = 'basic' | 'pro' | 'pro_plus';
 
 export interface User {
     id: number;
     name: string;
     email: string;
+    tier: UserTier;
     avatar?: string;
     email_verified_at: string | null;
     created_at: string;

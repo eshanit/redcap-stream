@@ -12,6 +12,16 @@ class User extends Authenticatable
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
 
+    public const TIER_BASIC = 'basic';
+    public const TIER_PRO = 'pro';
+    public const TIER_PRO_PLUS = 'pro_plus';
+
+    private const TIER_RANK = [
+        self::TIER_BASIC => 1,
+        self::TIER_PRO => 2,
+        self::TIER_PRO_PLUS => 3,
+    ];
+
     /**
      * The attributes that are mass assignable.
      *
@@ -44,5 +54,10 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    public function hasTierAtLeast(string $tier): bool
+    {
+        return (self::TIER_RANK[$this->tier] ?? 0) >= (self::TIER_RANK[$tier] ?? 99);
     }
 }

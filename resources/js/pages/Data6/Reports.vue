@@ -4,6 +4,9 @@ import { Head } from '@inertiajs/vue3';
 import { AlertTriangle, ChevronDown, CircleAlert, Download, FileSpreadsheet, HelpCircle, RefreshCw } from 'lucide-vue-next';
 import { computed, onMounted, ref } from 'vue';
 import { type BreadcrumbItem } from '@/types';
+import { useTier } from '@/composables/useTier';
+
+const { canDownloadPdf } = useTier();
 
 interface GroupMeta { key: string; label: string; }
 interface Bucket { label: string; value: number | null; numerator?: number; denominator?: number; }
@@ -148,7 +151,7 @@ function downloadPdf(): void {
                         <p class="mt-2 hidden text-xs text-[#60716d] print:block">Report generated {{ generatedOn }}, covering {{ from }} → {{ to }}</p>
                     </div>
                     <div class="flex items-center gap-2 print:hidden">
-                        <button class="inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-5 py-2.5 text-xs font-bold text-[#3c605b] transition hover:bg-white" title="Opens the print dialog — choose &quot;Save as PDF&quot; as the destination" @click="downloadPdf">
+                        <button v-if="canDownloadPdf" class="inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-5 py-2.5 text-xs font-bold text-[#3c605b] transition hover:bg-white" title="Opens the print dialog — choose &quot;Save as PDF&quot; as the destination" @click="downloadPdf">
                             <Download class="size-4" />Download PDF
                         </button>
                         <a :href="excelUrl" class="inline-flex items-center gap-2 rounded-full bg-[#173b3b] px-5 py-2.5 text-xs font-bold text-white transition hover:bg-[#285655]">
