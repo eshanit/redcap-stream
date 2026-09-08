@@ -41,6 +41,11 @@ Route::middleware('auth')->group(function () {
     Route::get('data6/reports', [Data6ReportController::class, 'index'])->name('data6.reports');
     Route::get('data6/insights', [Data6InsightsController::class, 'index'])->name('data6.insights');
     Route::get('data6/flow', Data6ProjectDashboardController::class)->name('data6.flow');
+    // Record IDs (e.g. "MUS/2026/00058") contain literal slashes, so
+    // {record} must be the route's last segment with a greedy `.*` match -
+    // Laravel's standard pattern for a slash-containing trailing param.
+    Route::get('data6/flow/{record}', [Data6ProjectDashboardController::class, 'showTimeline'])
+        ->where('record', '.*')->name('data6.flow.patient');
     Route::get('data6/project/{project_id}', Data6ProjectDashboardController::class)->name('data6.project.dashboard');
 
     // Project NCD
@@ -188,12 +193,8 @@ Route::middleware('auth')->group(function () {
             ->name('api.data6.insights.data');
         Route::get('data6/reports/excel', [Data6ReportController::class, 'excel'])
             ->name('api.data6.reports.excel');
-        Route::get('data6/patient/{patient}/timeline', [Data6ProjectDashboardController::class, 'timeline'])
-            ->name('api.data6.patient.timeline');
         Route::get('data6/report', [Data6ProjectDashboardController::class, 'report'])
             ->name('api.data6.report');
-        Route::post('data6/patient/{patient}/source-record/{sourceRecord}', [Data6ProjectDashboardController::class, 'linkSourceRecord'])
-            ->name('api.data6.patient.source-record.link');
         Route::get('project/{project_id}/appointment_reviews/all_visits', [ReviewController::class, 'getAllVisits'])->name('api.appointment.reviews.all_visits');
         Route::get('project/{project_id}/appointment_reviews/latest_visits', [ReviewController::class, 'getLatestVisits'])->name('api.appointment.reviews.latest_visits');
         Route::get('project/{project_id}/appointment_reviews/upcoming', [ReviewController::class, 'getUpcoming'])->name('api.appointment.reviews.upcoming');

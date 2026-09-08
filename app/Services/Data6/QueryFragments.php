@@ -96,9 +96,59 @@ trait QueryFragments
         return "({$dateExpr} REGEXP '".self::$DATE_RE."' AND {$dateExpr} BETWEEN '{$this->from}' AND '{$this->to}')";
     }
 
+    /** instrument prefix -> human service-family label, shared by every
+     *  service that groups encounters into families (Insights, patient
+     *  timeline). Dateless instruments (mh/he/couns/artib) are access flags
+     *  only - artib (OI/ART Initial Baseline) has no single visit-date field,
+     *  only per-lab-test dates, so it's tracked the same way. */
+    protected static array $FAMILY = [
+        'sti' => 'STI', 'fp' => 'Family planning', 'ancr' => 'ANC', 'anc' => 'ANC',
+        'pncr' => 'PNC', 'pncm' => 'PNC', 'pncb' => 'PNC', 'prepr' => 'PrEP', 'prep' => 'PrEP',
+        'artr' => 'OI/ART', 'artib' => 'OI/ART', 'art' => 'OI/ART', 'hts' => 'HIV testing', 'pls' => 'Peer support',
+        'opd' => 'Outpatient', 'mh' => 'Mental health', 'he' => 'Health education', 'couns' => 'Counselling',
+    ];
+
+    /**
+     * instrument -> its role within a program that has a formal
+     * registration/follow-up structure (ANC, PNC, PrEP, OI/ART). Every
+     * instrument not listed has no such structure - each occurrence just
+     * stands on its own, tracked by its own visit date (STI, HTS, ...).
+     */
+    protected static array $ROLE = [
+        'ancr' => 'registration', 'anc' => 'follow_up',
+        'pncr' => 'registration', 'pncm' => 'follow_up', 'pncb' => 'follow_up',
+        'prepr' => 'registration', 'prep' => 'follow_up',
+        'artr' => 'registration', 'artib' => 'baseline', 'art' => 'follow_up',
+    ];
+
+    /** PNC's two follow-up instruments track different people under one
+     *  registration - who a given entry is actually about. */
+    protected static array $SUBJECT = ['pncm' => 'Mother', 'pncb' => 'Baby'];
+
+    protected function familyLabel(string $instrument): ?string
+    {
+        return self::$FAMILY[$instrument] ?? null;
+    }
+
+    protected function roleFor(string $instrument): ?string
+    {
+        return self::$ROLE[$instrument] ?? null;
+    }
+
+    protected function subjectFor(string $instrument): ?string
+    {
+        return self::$SUBJECT[$instrument] ?? null;
+    }
+
     /**
      * UNION of one row per (record, instrument, date, instance) for every
-     * dated encounter, deduplicated across mirrored projects.
+     * dated encounter, deduplicated across mirrored projects. `project_id`
+     * is the lowest project the encounter appears under when a shared
+     * instrument (sti/prepr/prep/hts/pls) has mirrored copies in more than
+     * one project - informational only (which form it can be reviewed in),
+     * never used to multiply the encounter itself, since GROUP BY (not
+     * SELECT DISTINCT) is what still collapses those mirrored copies to
+     * one row.
      */
     protected function encountersSql(): string
     {
@@ -121,10 +171,11 @@ trait QueryFragments
 
         $parts = [];
         foreach ($sources as [$name, $projects, $dateField]) {
-            $parts[] = "SELECT DISTINCT record, '{$name}' AS instrument, value AS visit_date, COALESCE(instance, 1) AS inst
+            $parts[] = "SELECT record, '{$name}' AS instrument, value AS visit_date, COALESCE(instance, 1) AS inst, MIN(project_id) AS project_id
                         FROM redcap_data6
                         WHERE project_id IN ({$projects}) AND field_name = '{$dateField}'
-                          AND value REGEXP '".self::$DATE_RE."'";
+                          AND value REGEXP '".self::$DATE_RE."'
+                        GROUP BY record, value, COALESCE(instance, 1)";
         }
 
         return implode("\nUNION ALL\n", $parts);

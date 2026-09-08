@@ -3,8 +3,7 @@
 namespace App\Http\Controllers\Projects\Data6;
 
 use App\Http\Controllers\Controller;
-use App\Models\Data6Patient;
-use App\Models\Data6SourceRecord;
+use App\Services\Data6\PatientTimelineService;
 use App\Services\ProjectData6Service;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -31,19 +30,24 @@ class ProjectDashboardController extends Controller
             'project' => $project,
             'recordCount' => $data6Service->uniqueRecordCount(),
             'recordsByProject' => $data6Service->recordsByProject(),
+            'serviceTotals' => $data6Service->serviceTotals(),
         ]);
     }
 
-    public function timeline(Data6Patient $patient, ProjectData6Service $data6Service)
+    /**
+     * Renders the record's whole history as Inertia props - no separate
+     * JSON API/client-side fetch, since (unlike the indicator deep-dives)
+     * there's no period filter to refetch against. A record ID like
+     * "MUS/2026/00058" contains literal slashes, which would make a
+     * `{record}/timeline`-style API route ambiguous to match; embedding
+     * the data directly in the page sidesteps that entirely.
+     */
+    public function showTimeline(string $record, PatientTimelineService $timelineService)
     {
-        return response()->json([
-            'patient_id' => $patient->id,
-            'source_records' => $patient->sourceRecords()->get([
-                'data6_source_records.id',
-                'project_id',
-                'redcap_record',
-            ]),
-            'encounters' => $data6Service->timeline($patient),
+        return Inertia::render('Data6/PatientFlow', [
+            'appTitle' => config('redcap.data6_unit.title'),
+            'record' => $record,
+            'patient' => $timelineService->find($record),
         ]);
     }
 
@@ -67,26 +71,5 @@ class ProjectDashboardController extends Controller
                 $validated['to'] ?? null,
             ),
         ]);
-    }
-
-    public function linkSourceRecord(
-        Request $request,
-        Data6Patient $patient,
-        Data6SourceRecord $sourceRecord,
-        ProjectData6Service $data6Service,
-    ) {
-        $validated = $request->validate([
-            'match_method' => ['required', 'in:confirmed_identifier,manual_review'],
-            'match_confidence' => ['nullable', 'numeric', 'between:0,1'],
-        ]);
-
-        $data6Service->linkSourceRecord(
-            $patient,
-            $sourceRecord,
-            $validated['match_method'],
-            isset($validated['match_confidence']) ? (float) $validated['match_confidence'] : null,
-        );
-
-        return response()->json(['linked' => true]);
     }
 }

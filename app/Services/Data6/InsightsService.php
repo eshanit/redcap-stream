@@ -34,14 +34,6 @@ class InsightsService
 
     private ?int $ageHi = 19;
 
-    /** instrument prefix -> service family label */
-    private const FAMILY = [
-        'sti' => 'STI', 'fp' => 'Family planning', 'ancr' => 'ANC', 'anc' => 'ANC',
-        'pncr' => 'PNC', 'pncm' => 'PNC', 'pncb' => 'PNC', 'prepr' => 'PrEP', 'prep' => 'PrEP',
-        'artr' => 'OI/ART', 'art' => 'OI/ART', 'hts' => 'HIV testing', 'pls' => 'Peer support',
-        'opd' => 'Outpatient', 'mh' => 'Mental health', 'he' => 'Health education', 'couns' => 'Counselling',
-    ];
-
     private const DATELESS = ['Mental health', 'Health education', 'Counselling'];
 
     public function compute(string $from, string $to): array
@@ -114,7 +106,7 @@ class InsightsService
 
         $profiles = [];
         foreach ($rows as $r) {
-            $family = self::FAMILY[$r->instrument] ?? null;
+            $family = $this->familyLabel($r->instrument);
             if ($family === null) {
                 continue;
             }
@@ -140,7 +132,7 @@ class InsightsService
 
     private function familyLabels(): array
     {
-        return array_values(array_unique(array_values(self::FAMILY)));
+        return array_values(array_unique(array_values(self::$FAMILY)));
     }
 
     // ------------------------------------------------------------------
