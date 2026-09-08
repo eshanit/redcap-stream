@@ -190,3 +190,20 @@
     @apply bg-background text-foreground;
   }
 }
+
+/*
+  Print / "download as PDF" support (browser print -> Save as PDF). Chrome
+  drops background colors and shading by default when printing, which would
+  blank out every stat-tile border, chart bar and heatmap cell - color-adjust
+  forces them to actually appear. @page sets sane margins instead of the
+  browser default (which varies and can clip wide tables/charts at the edge).
+*/
+@media print {
+  @page {
+    margin: 12mm;
+  }
+  * {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}

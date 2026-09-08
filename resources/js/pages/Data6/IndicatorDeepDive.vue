@@ -240,6 +240,12 @@ function downloadCsv(headers: string[], rows: (string | number | null)[][], file
 function csvFilename(suffix: string): string {
     return `${props.meta.code}_${suffix}_${from.value}_${to.value}.csv`;
 }
+
+// ---- PDF export (print-driven) -------------------------------------------
+const generatedOn = computed(() => new Date().toLocaleString());
+function downloadPdf(): void {
+    window.print();
+}
 function downloadTrendCsv(): void {
     const headers = isPercent.value
         ? ['Month', 'Value (%)', 'Numerator', 'Denominator', cumulativeLabel.value]
@@ -386,14 +392,14 @@ const statusBadges: Record<string, { label: string; cls: string }> = {
 <template>
     <Head :title="`${meta.code} deep dive`" />
     <AppLayout :breadcrumbs="breadcrumbs">
-        <div class="min-h-screen bg-[#f5f3ee] text-[#173b3b]">
-            <div class="mx-auto max-w-[1300px] px-5 py-7 sm:px-8 lg:px-10">
+        <div class="min-h-screen bg-[#f5f3ee] text-[#173b3b] print:bg-white print:text-black">
+            <div class="mx-auto max-w-[1300px] px-5 py-7 sm:px-8 lg:px-10 print:max-w-none print:px-0 print:py-0">
 
-                <Link href="/data6/indicators" class="inline-flex items-center gap-1.5 text-xs font-bold text-[#55706a] transition hover:text-[#173b3b]">
+                <Link href="/data6/indicators" class="inline-flex items-center gap-1.5 text-xs font-bold text-[#55706a] transition hover:text-[#173b3b] print:hidden">
                     <ArrowLeft class="size-3.5" />All indicators
                 </Link>
 
-                <header class="mt-3 border-b border-[#d9ded7] pb-6">
+                <header class="mt-3 border-b border-[#d9ded7] pb-6 print:break-inside-avoid">
                     <div class="flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-[#e2644b]">
                         <span class="font-mono">{{ meta.code }}</span>
                         <span class="text-[#a6b1aa]">·</span><span class="text-[#7b8984]">{{ meta.level }}</span>
@@ -413,27 +419,36 @@ const statusBadges: Record<string, { label: string; cls: string }> = {
                         <p v-if="meta.variables" class="mt-1.5 font-mono text-[10.5px] text-[#7b8984]">{{ meta.variables }}</p>
                         <p v-if="methodCommon" class="mt-2 border-t border-[#eef0eb] pt-2 text-[11px] leading-4.5 text-[#7d8b85]">{{ methodCommon }}</p>
                     </details>
+                    <p class="mt-2 hidden text-xs text-[#60716d] print:block">Report generated {{ generatedOn }}</p>
                 </header>
 
                 <!-- Period + headline -->
-                <section class="mt-5 flex flex-wrap items-center justify-between gap-3">
+                <section class="mt-5 flex flex-wrap items-center justify-between gap-3 print:break-inside-avoid">
                     <div class="flex flex-wrap items-end gap-3">
-                        <div class="flex flex-wrap gap-1 rounded-full border border-[#cbd3cd] bg-white p-1">
+                        <div class="flex flex-wrap gap-1 rounded-full border border-[#cbd3cd] bg-white p-1 print:hidden">
                             <button v-for="preset in presets" :key="preset.key"
                                 class="rounded-full px-3 py-1.5 text-xs font-bold transition"
                                 :class="activePreset === preset.key ? 'bg-[#173b3b] text-white' : 'text-[#55706a] hover:bg-[#eef0eb]'"
                                 @click="applyPreset(preset.key)">{{ preset.label }}</button>
                         </div>
                         <template v-if="activePreset === 'custom'">
-                            <label class="text-xs text-[#55706a]">From <input v-model="from" type="date" class="ml-1 border border-[#cbd3cd] bg-white px-2 py-1.5 text-xs" @change="load" /></label>
-                            <label class="text-xs text-[#55706a]">To <input v-model="to" type="date" class="ml-1 border border-[#cbd3cd] bg-white px-2 py-1.5 text-xs" @change="load" /></label>
+                            <label class="text-xs text-[#55706a] print:hidden">From <input v-model="from" type="date" class="ml-1 border border-[#cbd3cd] bg-white px-2 py-1.5 text-xs" @change="load" /></label>
+                            <label class="text-xs text-[#55706a] print:hidden">To <input v-model="to" type="date" class="ml-1 border border-[#cbd3cd] bg-white px-2 py-1.5 text-xs" @change="load" /></label>
                         </template>
                         <span v-if="!meta.no_period" class="text-xs font-semibold text-[#7b8984]">{{ from }} → {{ to }}</span>
                         <span v-else class="text-xs font-semibold text-[#7b8984]">All-time value — no date field on this instrument</span>
                     </div>
-                    <button class="rounded-full border border-[#bdc9c3] p-2.5 text-[#3c605b] transition hover:bg-white" title="Refresh" @click="load">
-                        <RefreshCw class="size-4" :class="loading ? 'animate-spin' : ''" />
-                    </button>
+                    <div class="flex items-center gap-2 print:hidden">
+                        <button
+                            class="inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-4 py-2 text-xs font-bold text-[#3c605b] transition hover:bg-white"
+                            title="Opens the print dialog — choose &quot;Save as PDF&quot; as the destination"
+                            @click="downloadPdf">
+                            <Download class="size-3.5" />Download PDF
+                        </button>
+                        <button class="rounded-full border border-[#bdc9c3] p-2.5 text-[#3c605b] transition hover:bg-white" title="Refresh" @click="load">
+                            <RefreshCw class="size-4" :class="loading ? 'animate-spin' : ''" />
+                        </button>
+                    </div>
                 </section>
 
                 <div v-if="error" class="mt-5 flex items-center gap-2 bg-[#fff1ed] px-4 py-3 text-sm text-[#b74f3d]">
@@ -442,7 +457,7 @@ const statusBadges: Record<string, { label: string; cls: string }> = {
                 <div v-else-if="loading" class="mt-8 py-14 text-center text-sm text-[#788681]">Computing {{ meta.code }} for {{ from }} → {{ to }}…</div>
 
                 <template v-else-if="dive">
-                    <section class="mt-6 flex flex-wrap items-end gap-6 border-l-4 border-[#e86d52] bg-[#fcfcfb] px-6 py-5">
+                    <section class="mt-6 flex flex-wrap items-end gap-6 border-l-4 border-[#e86d52] bg-[#fcfcfb] px-6 py-5 print:break-inside-avoid">
                         <div>
                             <p class="text-xs font-bold uppercase tracking-wider text-[#76827e]">{{ meta.no_period ? 'All-time value' : 'Value for the period' }}</p>
                             <p class="mt-1 font-serif text-5xl text-[#0b2c2c]">{{ totalText }}</p>
@@ -453,14 +468,15 @@ const statusBadges: Record<string, { label: string; cls: string }> = {
                         </p>
                     </section>
 
-                    <section v-if="monthTrend.length" class="mt-4 border border-[#d9ded7] bg-[#fcfcfb] p-5">
+                    <section v-if="monthTrend.length" class="mt-4 border border-[#d9ded7] bg-[#fcfcfb] p-5 print:break-inside-avoid">
                         <div class="flex flex-wrap items-center justify-between gap-3">
                             <h2 class="text-sm font-bold text-[#244847]">Monthly trend</h2>
                             <div class="flex flex-wrap items-center gap-2">
                                 <span class="rounded-full border border-[#cbd3cd] bg-white px-3 py-1 text-[11px] font-bold text-[#55706a]">
                                     {{ cumulativeLabel }}: <span class="text-[#173b3b]">{{ cumulativeText }}</span>
                                 </span>
-                                <span class="mx-1 h-4 w-px bg-[#d9ded7]" />
+                                <span class="mx-1 h-4 w-px bg-[#d9ded7] print:hidden" />
+                                <div class="flex flex-wrap items-center gap-2 print:hidden">
                                 <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadChart('png')">
                                     <Download class="size-3" />PNG
                                 </button>
@@ -470,6 +486,7 @@ const statusBadges: Record<string, { label: string; cls: string }> = {
                                 <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadTrendCsv">
                                     <Download class="size-3" />CSV
                                 </button>
+                                </div>
                             </div>
                         </div>
                         <VueApexCharts ref="trendChartRef" :type="trendChartType" height="280" :options="trendOptions" :series="trendSeries" />
@@ -479,10 +496,10 @@ const statusBadges: Record<string, { label: string; cls: string }> = {
                         </div>
                     </section>
 
-                    <section v-if="showSexTrend" class="mt-4 border border-[#d9ded7] bg-[#fcfcfb] p-5">
+                    <section v-if="showSexTrend" class="mt-4 border border-[#d9ded7] bg-[#fcfcfb] p-5 print:break-inside-avoid">
                         <div class="flex flex-wrap items-center justify-between gap-3">
                             <h2 class="text-sm font-bold text-[#244847]">Monthly trend by sex</h2>
-                            <div class="flex flex-wrap items-center gap-2">
+                            <div class="flex flex-wrap items-center gap-2 print:hidden">
                                 <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadSexChart('png')">
                                     <Download class="size-3" />PNG
                                 </button>
@@ -504,10 +521,10 @@ const statusBadges: Record<string, { label: string; cls: string }> = {
 
                     <section class="mt-4 grid gap-4 lg:grid-cols-2">
                         <div class="flex flex-col gap-4">
-                            <div class="border border-[#d9ded7] bg-[#fcfcfb] p-5">
+                            <div class="border border-[#d9ded7] bg-[#fcfcfb] p-5 print:break-inside-avoid">
                                 <div class="flex flex-wrap items-center justify-between gap-3">
                                     <h2 class="text-sm font-bold text-[#244847]">By facility</h2>
-                                    <div v-if="buckets('facility').length" class="flex flex-wrap items-center gap-2">
+                                    <div v-if="buckets('facility').length" class="flex flex-wrap items-center gap-2 print:hidden">
                                         <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadFacilityChart('png')"><Download class="size-3" />PNG</button>
                                         <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadFacilityChart('jpg')"><Download class="size-3" />JPG</button>
                                         <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadBucketCsv(buckets('facility'), 'Facility', 'facility')"><Download class="size-3" />CSV</button>
@@ -521,10 +538,10 @@ const statusBadges: Record<string, { label: string; cls: string }> = {
                                     <p v-for="(para, i) in insightParagraphs(facilityInsight)" :key="i" class="text-[12.5px] leading-5 text-[#52655f]" :class="i > 0 ? 'mt-2' : ''">{{ para }}</p>
                                 </div>
                             </div>
-                            <div v-if="hasSexDim && facilitySex.length" class="border border-[#d9ded7] bg-[#fcfcfb] p-5">
+                            <div v-if="hasSexDim && facilitySex.length" class="border border-[#d9ded7] bg-[#fcfcfb] p-5 print:break-inside-avoid">
                                 <div class="flex flex-wrap items-center justify-between gap-3">
                                     <h2 class="text-sm font-bold text-[#244847]">By facility, by sex</h2>
-                                    <div class="flex flex-wrap items-center gap-2">
+                                    <div class="flex flex-wrap items-center gap-2 print:hidden">
                                         <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadFacilitySexChart('png')"><Download class="size-3" />PNG</button>
                                         <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadFacilitySexChart('jpg')"><Download class="size-3" />JPG</button>
                                         <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadSexBucketCsv(facilitySex, 'Facility', 'facility_by_sex')"><Download class="size-3" />CSV</button>
@@ -539,10 +556,10 @@ const statusBadges: Record<string, { label: string; cls: string }> = {
                             </div>
                         </div>
                         <div class="flex flex-col gap-4">
-                            <div class="border border-[#d9ded7] bg-[#fcfcfb] p-5">
+                            <div class="border border-[#d9ded7] bg-[#fcfcfb] p-5 print:break-inside-avoid">
                                 <div class="flex flex-wrap items-center justify-between gap-3">
                                     <h2 class="text-sm font-bold text-[#244847]">By district</h2>
-                                    <div v-if="buckets('district').length" class="flex flex-wrap items-center gap-2">
+                                    <div v-if="buckets('district').length" class="flex flex-wrap items-center gap-2 print:hidden">
                                         <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadDistrictChart('png')"><Download class="size-3" />PNG</button>
                                         <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadDistrictChart('jpg')"><Download class="size-3" />JPG</button>
                                         <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadBucketCsv(buckets('district'), 'District', 'district')"><Download class="size-3" />CSV</button>
@@ -556,10 +573,10 @@ const statusBadges: Record<string, { label: string; cls: string }> = {
                                     <p v-for="(para, i) in insightParagraphs(districtInsight)" :key="i" class="text-[12.5px] leading-5 text-[#52655f]" :class="i > 0 ? 'mt-2' : ''">{{ para }}</p>
                                 </div>
                             </div>
-                            <div v-if="hasSexDim && districtSex.length" class="border border-[#d9ded7] bg-[#fcfcfb] p-5">
+                            <div v-if="hasSexDim && districtSex.length" class="border border-[#d9ded7] bg-[#fcfcfb] p-5 print:break-inside-avoid">
                                 <div class="flex flex-wrap items-center justify-between gap-3">
                                     <h2 class="text-sm font-bold text-[#244847]">By district, by sex</h2>
-                                    <div class="flex flex-wrap items-center gap-2">
+                                    <div class="flex flex-wrap items-center gap-2 print:hidden">
                                         <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadDistrictSexChart('png')"><Download class="size-3" />PNG</button>
                                         <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadDistrictSexChart('jpg')"><Download class="size-3" />JPG</button>
                                         <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadSexBucketCsv(districtSex, 'District', 'district_by_sex')"><Download class="size-3" />CSV</button>
@@ -572,7 +589,7 @@ const statusBadges: Record<string, { label: string; cls: string }> = {
                                     <p class="text-[12.5px] leading-5 text-[#52655f]">{{ districtSexInsight }}</p>
                                 </div>
                             </div>
-                            <div class="grid grid-cols-2 gap-4">
+                            <div class="grid grid-cols-2 gap-4 print:break-inside-avoid">
                                 <div class="border border-[#d9ded7] bg-[#fcfcfb] p-5">
                                     <h2 class="text-sm font-bold text-[#244847]">By age band</h2>
                                     <table class="mt-2 w-full text-xs" style="font-variant-numeric: tabular-nums">
@@ -601,10 +618,10 @@ const statusBadges: Record<string, { label: string; cls: string }> = {
                         </div>
                     </section>
 
-                    <section v-if="buckets('service_point').length" class="mt-4 border border-[#d9ded7] bg-[#fcfcfb] p-5">
+                    <section v-if="buckets('service_point').length" class="mt-4 border border-[#d9ded7] bg-[#fcfcfb] p-5 print:break-inside-avoid">
                         <div class="flex flex-wrap items-center justify-between gap-3">
                             <h2 class="text-sm font-bold text-[#244847]">By service point</h2>
-                            <div class="flex flex-wrap items-center gap-2">
+                            <div class="flex flex-wrap items-center gap-2 print:hidden">
                                 <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadServicePointChart('png')"><Download class="size-3" />PNG</button>
                                 <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadServicePointChart('jpg')"><Download class="size-3" />JPG</button>
                                 <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadBucketCsv(buckets('service_point'), 'Service point', 'service_point')"><Download class="size-3" />CSV</button>
@@ -618,10 +635,10 @@ const statusBadges: Record<string, { label: string; cls: string }> = {
                         </div>
                     </section>
 
-                    <section v-if="hasSexDim && servicePointSex.length" class="mt-4 border border-[#d9ded7] bg-[#fcfcfb] p-5">
+                    <section v-if="hasSexDim && servicePointSex.length" class="mt-4 border border-[#d9ded7] bg-[#fcfcfb] p-5 print:break-inside-avoid">
                         <div class="flex flex-wrap items-center justify-between gap-3">
                             <h2 class="text-sm font-bold text-[#244847]">By service point, by sex</h2>
-                            <div class="flex flex-wrap items-center gap-2">
+                            <div class="flex flex-wrap items-center gap-2 print:hidden">
                                 <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadServicePointSexChart('png')"><Download class="size-3" />PNG</button>
                                 <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadServicePointSexChart('jpg')"><Download class="size-3" />JPG</button>
                                 <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadSexBucketCsv(servicePointSex, 'Service point', 'service_point_by_sex')"><Download class="size-3" />CSV</button>
@@ -641,7 +658,7 @@ const statusBadges: Record<string, { label: string; cls: string }> = {
                          independently-lazy accordion. -->
                     <ArtCascadeAnalysis v-if="meta.analysis?.includes('art_cascade')" :code="meta.code" :from="from" :to="to" />
                     <HtsReconciliationAnalysis v-if="meta.analysis?.includes('hts_reconciliation')" :code="meta.code" :from="from" :to="to" />
-                    <section v-if="!meta.analysis?.length" class="mt-6 border border-dashed border-[#c5b78f] bg-[#fbf6ea] px-5 py-4">
+                    <section v-if="!meta.analysis?.length" class="mt-6 border border-dashed border-[#c5b78f] bg-[#fbf6ea] px-5 py-4 print:break-inside-avoid">
                         <div class="flex items-start gap-3">
                             <FlaskConical class="mt-0.5 size-5 shrink-0 text-[#a87524]" />
                             <div>

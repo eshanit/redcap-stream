@@ -169,7 +169,7 @@ function downloadRecordsCsv(): void {
 
                 <template v-else-if="current">
                     <!-- Headline: a ratio against a limit reads as a meter, not a bare number -->
-                    <div class="flex flex-wrap items-center justify-between gap-6 border border-[#d9ded7] bg-white px-5 py-4">
+                    <div class="flex flex-wrap items-center justify-between gap-6 border border-[#d9ded7] bg-white px-5 py-4 print:break-inside-avoid">
                         <div class="flex flex-wrap items-center gap-4">
                             <RateMeter
                                 label="Missing from HTS" :value="current.gap_pct" color="#fab219"
@@ -177,17 +177,17 @@ function downloadRecordsCsv(): void {
                                 :filename="`${code}_reconciliation_gap_rate_${from}_${to}`" />
                             <p class="text-xs text-[#82908a]">{{ current.in_hts.toLocaleString() }} of them are also logged in {{ officialLabel }} this period.</p>
                         </div>
-                        <button v-if="current.records.length" class="inline-flex items-center gap-1.5 rounded-full bg-[#173b3b] px-4 py-2 text-xs font-bold text-white transition hover:bg-[#285655]" @click="downloadRecordsCsv">
+                        <button v-if="current.records.length" class="inline-flex items-center gap-1.5 rounded-full bg-[#173b3b] px-4 py-2 text-xs font-bold text-white transition hover:bg-[#285655] print:hidden" @click="downloadRecordsCsv">
                             <Download class="size-3.5" />Download reconciliation list (CSV)
                         </button>
                     </div>
 
                     <template v-if="current.gap > 0">
                         <!-- By source -->
-                        <div class="mt-4 border border-[#d9ded7] bg-white p-5">
+                        <div class="mt-4 border border-[#d9ded7] bg-white p-5 print:break-inside-avoid">
                             <div class="flex flex-wrap items-center justify-between gap-3">
                                 <h3 class="text-sm font-bold text-[#244847]">Where the missing evidence comes from</h3>
-                                <div class="flex flex-wrap items-center gap-2">
+                                <div class="flex flex-wrap items-center gap-2 print:hidden">
                                     <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadSourceChart('png')"><Download class="size-3" />PNG</button>
                                     <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadSourceChart('jpg')"><Download class="size-3" />JPG</button>
                                 </div>
@@ -199,10 +199,10 @@ function downloadRecordsCsv(): void {
                         </div>
 
                         <!-- By facility -->
-                        <div class="mt-4 border border-[#d9ded7] bg-white p-5">
+                        <div class="mt-4 border border-[#d9ded7] bg-white p-5 print:break-inside-avoid">
                             <div class="flex flex-wrap items-center justify-between gap-3">
                                 <h3 class="text-sm font-bold text-[#244847]">Where the gap is concentrated</h3>
-                                <div class="flex flex-wrap items-center gap-2">
+                                <div class="flex flex-wrap items-center gap-2 print:hidden">
                                     <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadFacilityChart('png')"><Download class="size-3" />PNG</button>
                                     <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadFacilityChart('jpg')"><Download class="size-3" />JPG</button>
                                 </div>

@@ -195,13 +195,13 @@ function downloadRetentionCsv(): void {
 
                 <template v-else-if="data">
                     <!-- 1. Cohort outcome breakdown -->
-                    <div class="border border-[#d9ded7] bg-white p-5">
+                    <div class="border border-[#d9ded7] bg-white p-5 print:break-inside-avoid">
                         <div class="flex flex-wrap items-center justify-between gap-3">
                             <div>
                                 <h3 class="text-sm font-bold text-[#244847]">Cohort outcome breakdown</h3>
                                 <p class="mt-0.5 text-[11px] text-[#788681]">All {{ data.cohort_outcomes.total.toLocaleString() }} clients ever in ART care, by current status as of {{ to }}.</p>
                             </div>
-                            <div class="flex flex-wrap items-center gap-2">
+                            <div class="flex flex-wrap items-center gap-2 print:hidden">
                                 <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadOutcomeChart('png')"><Download class="size-3" />PNG</button>
                                 <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadOutcomeChart('jpg')"><Download class="size-3" />JPG</button>
                                 <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadOutcomesCsv"><Download class="size-3" />CSV</button>
@@ -214,13 +214,13 @@ function downloadRetentionCsv(): void {
                     </div>
 
                     <!-- 2. Retention trend -->
-                    <div class="mt-4 border border-[#d9ded7] bg-white p-5">
+                    <div class="mt-4 border border-[#d9ded7] bg-white p-5 print:break-inside-avoid">
                         <div class="flex flex-wrap items-center justify-between gap-3">
                             <div>
                                 <h3 class="text-sm font-bold text-[#244847]">12-month retention across recent cohorts</h3>
                                 <p class="mt-0.5 text-[11px] text-[#788681]">Each bar is the group initiated in that month; retention is measured once they reach the 12-month mark.</p>
                             </div>
-                            <div v-if="data.retention_trend.length" class="flex flex-wrap items-center gap-2">
+                            <div v-if="data.retention_trend.length" class="flex flex-wrap items-center gap-2 print:hidden">
                                 <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadRetentionChart('png')"><Download class="size-3" />PNG</button>
                                 <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadRetentionChart('jpg')"><Download class="size-3" />JPG</button>
                                 <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadRetentionCsv"><Download class="size-3" />CSV</button>
@@ -237,7 +237,7 @@ function downloadRetentionCsv(): void {
                     </div>
 
                     <!-- 3. VL coverage among the active cohort -->
-                    <div class="mt-4 border border-[#d9ded7] bg-white px-5 py-4">
+                    <div class="mt-4 border border-[#d9ded7] bg-white px-5 py-4 print:break-inside-avoid">
                         <h3 class="text-sm font-bold text-[#244847]">VL testing coverage, active cohort</h3>
                         <p class="mt-0.5 text-[11px] text-[#788681]">A ratio against the eligible population, not a raw count — the right form is a meter, not a bar.</p>
                         <div class="mt-3">

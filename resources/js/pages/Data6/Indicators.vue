@@ -184,15 +184,21 @@ function exportCsv(): void {
     link.click();
     URL.revokeObjectURL(link.href);
 }
+
+// ---- PDF export (print-driven) -------------------------------------------
+const generatedOn = computed(() => new Date().toLocaleString());
+function downloadPdf(): void {
+    window.print();
+}
 </script>
 
 <template>
     <Head title="AHP Indicators" />
     <AppLayout :breadcrumbs="breadcrumbs">
-        <div class="min-h-screen bg-[#f5f3ee] text-[#173b3b]">
-            <div class="mx-auto max-w-[1500px] px-5 py-7 sm:px-8 lg:px-10">
+        <div class="min-h-screen bg-[#f5f3ee] text-[#173b3b] print:bg-white print:text-black">
+            <div class="mx-auto max-w-[1500px] px-5 py-7 sm:px-8 lg:px-10 print:max-w-none print:px-0 print:py-0">
 
-                <header class="flex flex-col justify-between gap-4 border-b border-[#d9ded7] pb-6 lg:flex-row lg:items-end">
+                <header class="flex flex-col justify-between gap-4 border-b border-[#d9ded7] pb-6 lg:flex-row lg:items-end print:break-inside-avoid">
                     <div>
                         <div class="mb-3 flex items-center gap-3 text-[11px] font-bold uppercase tracking-[0.22em] text-[#e2644b]">
                             <span class="h-2 w-2 rounded-full bg-[#e2644b]" />{{ appTitle }}
@@ -202,8 +208,11 @@ function exportCsv(): void {
                             The 45 programme indicators, computed across FCH, OI/ART and OPD with cross-project
                             deduplication. Unique clients are counted once however many services they use.
                         </p>
+                        <p class="mt-2 hidden text-xs text-[#60716d] print:block">
+                            Period: {{ from }} → {{ to }} · Report generated {{ generatedOn }}
+                        </p>
                     </div>
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2 print:hidden">
                         <Link href="/data6/insights" class="inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-4 py-2 text-xs font-bold text-[#3c605b] transition hover:bg-white">
                             <Lightbulb class="size-3.5" />Insights
                         </Link>
@@ -213,6 +222,12 @@ function exportCsv(): void {
                         <button class="inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-4 py-2 text-xs font-bold text-[#3c605b] transition hover:bg-white" @click="exportCsv">
                             <Download class="size-3.5" />Export CSV
                         </button>
+                        <button
+                            class="inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-4 py-2 text-xs font-bold text-[#3c605b] transition hover:bg-white"
+                            title="Opens the print dialog — choose &quot;Save as PDF&quot; as the destination"
+                            @click="downloadPdf">
+                            <Download class="size-3.5" />Download PDF
+                        </button>
                         <button class="inline-flex items-center gap-2 rounded-full bg-[#173b3b] px-4 py-2 text-xs font-bold text-white transition hover:bg-[#285655]" @click="load">
                             <RefreshCw class="size-3.5" :class="loading ? 'animate-spin' : ''" />Refresh
                         </button>
@@ -220,7 +235,7 @@ function exportCsv(): void {
                 </header>
 
                 <!-- Filters: one row above the charts -->
-                <section class="mt-5 flex flex-wrap items-end gap-3">
+                <section class="mt-5 flex flex-wrap items-end gap-3 print:hidden">
                     <div class="flex gap-1 rounded-full border border-[#cbd3cd] bg-white p-1">
                         <button v-for="preset in presets" :key="preset.key"
                             class="rounded-full px-3 py-1.5 text-xs font-bold transition"
@@ -266,12 +281,12 @@ function exportCsv(): void {
                 <template v-else>
                     <!-- Overview charts -->
                     <section class="mt-6 grid gap-4 xl:grid-cols-2">
-                        <div class="border border-[#d9ded7] bg-[#fcfcfb] p-5">
+                        <div class="border border-[#d9ded7] bg-[#fcfcfb] p-5 print:break-inside-avoid">
                             <h2 class="text-sm font-bold text-[#244847]">Adolescents and visits by month</h2>
                             <VueApexCharts v-if="trend.length" type="line" height="240" :options="trendOptions" :series="trendSeries" />
                             <p v-else class="py-12 text-center text-xs text-[#898781]">No dated encounters in this period.</p>
                         </div>
-                        <div class="border border-[#d9ded7] bg-[#fcfcfb] p-5">
+                        <div class="border border-[#d9ded7] bg-[#fcfcfb] p-5 print:break-inside-avoid">
                             <h2 class="text-sm font-bold text-[#244847]">Unique adolescents by facility</h2>
                             <VueApexCharts v-if="facilityBreakdown.length" type="bar" :height="Math.max(200, facilityBreakdown.length * 32 + 60)"
                                 :options="{ ...facilityOptions, xaxis: { ...facilityOptions.xaxis, categories: facilityCategories } }"
@@ -281,17 +296,20 @@ function exportCsv(): void {
                     </section>
 
                     <!-- Group tabs -->
-                    <nav class="mt-8 flex flex-wrap gap-2 border-b border-[#d9ded7] pb-3">
+                    <nav class="mt-8 flex flex-wrap gap-2 border-b border-[#d9ded7] pb-3 print:hidden">
                         <button v-for="group in groupTabs" :key="group.key"
                             class="rounded-full border px-4 py-2 text-xs font-bold transition"
                             :class="activeGroup === group.key ? 'border-[#173b3b] bg-[#173b3b] text-white' : 'border-[#cbd3cd] text-[#55706a] hover:bg-white'"
                             @click="activeGroup = group.key">{{ group.label }}</button>
                     </nav>
+                    <p class="mt-6 hidden text-xs font-bold uppercase tracking-wide text-[#55706a] print:block">
+                        {{ groupTabs.find((g) => g.key === activeGroup)?.label }} indicators
+                    </p>
 
                     <!-- Indicator cards -->
                     <section class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                         <article v-for="meta in indicatorsInGroup" :key="meta.key"
-                            class="flex flex-col justify-between border border-[#d9ded7] bg-[#fcfcfb] p-4"
+                            class="flex flex-col justify-between border border-[#d9ded7] bg-[#fcfcfb] p-4 print:break-inside-avoid"
                             :class="meta.status === 'blocked' ? 'opacity-70' : ''">
                             <div>
                                 <div class="flex items-start justify-between gap-2">

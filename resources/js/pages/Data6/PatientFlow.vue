@@ -3,7 +3,7 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import {
     Activity, ArrowLeft, Baby, CalendarDays, CircleAlert, ClipboardList,
-    GitMerge, HeartPulse, HelpCircle, RefreshCw, Search, ShieldCheck, Users,
+    Download, GitMerge, HeartPulse, HelpCircle, RefreshCw, Search, ShieldCheck, Users,
 } from 'lucide-vue-next';
 import { computed } from 'vue';
 import { type BreadcrumbItem } from '@/types';
@@ -96,26 +96,42 @@ const familyGroups = computed<FamilyGroup[]>(() => {
     });
 });
 function roleLabel(role: Role): string { return role === 'baseline' ? 'Baseline' : 'Registered'; }
+
+// "Download PDF" = browser print (same mechanism as the other Data6 pages).
+// A long-standing OI/ART patient can have years of follow-up rows, so each
+// family card doesn't get whole-card break-inside-avoid (could force a huge
+// card to overflow a page) - only the header (glued to what follows) and
+// each individual row get it, so a long history can span pages naturally.
+const generatedOn = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+function downloadPdf(): void {
+    window.print();
+}
 </script>
 
 <template>
     <Head :title="`Patient ${record}`" />
     <AppLayout :breadcrumbs="breadcrumbs">
-        <div class="min-h-screen bg-[#f5f3ee] text-[#173b3b]">
-            <div class="mx-auto max-w-[1100px] px-5 py-7 sm:px-8 lg:px-10">
+        <div class="min-h-screen bg-[#f5f3ee] text-[#173b3b] print:bg-white print:text-black">
+            <div class="mx-auto max-w-[1100px] px-5 py-7 sm:px-8 lg:px-10 print:max-w-none print:px-0 print:py-0">
 
-                <Link href="/data6/flow" class="inline-flex items-center gap-1.5 text-xs font-bold text-[#55706a] transition hover:text-[#173b3b]">
+                <Link href="/data6/flow" class="inline-flex items-center gap-1.5 text-xs font-bold text-[#55706a] transition hover:text-[#173b3b] print:hidden">
                     <ArrowLeft class="size-3.5" />All patient flow
                 </Link>
 
-                <header class="mt-3 flex items-start justify-between gap-4 border-b border-[#d9ded7] pb-6">
+                <header class="mt-3 flex items-start justify-between gap-4 border-b border-[#d9ded7] pb-6 print:break-inside-avoid">
                     <div>
                         <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-[#e2644b]">Patient flow</p>
                         <h1 class="mt-2 max-w-3xl break-all font-serif text-3xl leading-tight tracking-tight sm:text-4xl">{{ record }}</h1>
+                        <p class="mt-2 hidden text-xs text-[#788681] print:block">Report generated {{ generatedOn }}</p>
                     </div>
-                    <button class="shrink-0 rounded-full border border-[#bdc9c3] p-2.5 text-[#3c605b] transition hover:bg-white" title="Refresh" @click="refresh">
-                        <RefreshCw class="size-4" />
-                    </button>
+                    <div class="flex shrink-0 items-center gap-2 print:hidden">
+                        <button class="inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-4 py-2.5 text-xs font-bold text-[#3c605b] transition hover:bg-white" title="Opens the print dialog — choose &quot;Save as PDF&quot; as the destination" @click="downloadPdf">
+                            <Download class="size-4" />Download PDF
+                        </button>
+                        <button class="rounded-full border border-[#bdc9c3] p-2.5 text-[#3c605b] transition hover:bg-white" title="Refresh" @click="refresh">
+                            <RefreshCw class="size-4" />
+                        </button>
+                    </div>
                 </header>
 
                 <div v-if="!found" class="mt-6 flex items-center gap-3 border border-dashed border-[#e3b3a8] bg-[#fff1ed] px-5 py-6 text-sm text-[#b74f3d]">
@@ -128,7 +144,7 @@ function roleLabel(role: Role): string { return role === 'baseline' ? 'Baseline'
 
                 <template v-else-if="patient">
                     <!-- Summary card -->
-                    <section class="mt-6 border border-[#d9ded7] bg-[#fcfcfb] p-6">
+                    <section class="mt-6 border border-[#d9ded7] bg-[#fcfcfb] p-6 print:break-inside-avoid">
                         <div class="flex flex-wrap items-start justify-between gap-6">
                             <div class="grid grid-cols-2 gap-x-8 gap-y-3 text-sm sm:grid-cols-4">
                                 <div><p class="text-[10px] font-bold uppercase tracking-wider text-[#82908a]">Facility</p><p class="mt-0.5 font-semibold text-[#173b3b]">{{ patient.demographics.facility ?? '—' }}</p></div>
@@ -155,7 +171,7 @@ function roleLabel(role: Role): string { return role === 'baseline' ? 'Baseline'
                     <section v-if="familyGroups.length" class="mt-4 space-y-4">
                         <h2 class="text-sm font-bold text-[#244847]">Service timeline</h2>
                         <div v-for="group in familyGroups" :key="group.family" class="border border-[#d9ded7] bg-[#fcfcfb] p-5">
-                            <div class="flex items-center gap-3">
+                            <div class="flex items-center gap-3 print:break-after-avoid">
                                 <span class="grid size-8 shrink-0 place-items-center rounded-full text-white" :style="{ backgroundColor: styleFor(group.family).color }">
                                     <component :is="styleFor(group.family).icon" class="size-4" />
                                 </span>
@@ -166,7 +182,7 @@ function roleLabel(role: Role): string { return role === 'baseline' ? 'Baseline'
                             <template v-if="group.hasStructure">
                                 <!-- Registration / baseline: pinned, visually distinct from follow-ups -->
                                 <div v-for="r in group.registrationEntries" :key="`${r.instrument}-${r.project_id}`"
-                                    class="mt-3 flex items-center gap-3 border-l-2 border-[#1f7a73] bg-[#e7f0e9] px-3 py-2">
+                                    class="mt-3 flex items-center gap-3 border-l-2 border-[#1f7a73] bg-[#e7f0e9] px-3 py-2 print:break-inside-avoid">
                                     <span class="shrink-0 rounded-full bg-[#1f7a73] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">{{ roleLabel(r.role) }}</span>
                                     <span class="min-w-0 flex-1 truncate text-xs text-[#286057]">{{ r.instrument }}</span>
                                     <span class="shrink-0 rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-[#59726b]">{{ projectLabels[r.project_id]?.short ?? r.project_id }}</span>
@@ -178,7 +194,7 @@ function roleLabel(role: Role): string { return role === 'baseline' ? 'Baseline'
 
                                 <ol v-if="group.followUpEntries.length" class="mt-1">
                                     <li v-for="(f, i) in group.followUpEntries" :key="`${f.instrument}-${f.date}-${f.instance}`"
-                                        class="flex items-center gap-3 border-b border-[#eef0eb] py-2.5" :class="i === 0 ? 'border-t' : ''">
+                                        class="flex items-center gap-3 border-b border-[#eef0eb] py-2.5 print:break-inside-avoid" :class="i === 0 ? 'border-t' : ''">
                                         <span class="grid size-6 shrink-0 place-items-center rounded-full bg-[#eef0eb] text-[10px] font-bold text-[#59726b]">{{ i + 1 }}</span>
                                         <div class="min-w-0 flex-1">
                                             <p class="text-xs font-semibold text-[#365652]">
@@ -195,7 +211,7 @@ function roleLabel(role: Role): string { return role === 'baseline' ? 'Baseline'
                             <!-- No registration/follow-up structure - a flat list of this family's own visits -->
                             <ol v-else class="mt-1">
                                 <li v-for="(e, i) in group.plainEntries" :key="`${e.instrument}-${e.date}-${e.instance}`"
-                                    class="flex items-center gap-3 border-b border-[#eef0eb] py-2.5" :class="i === 0 ? 'border-t' : ''">
+                                    class="flex items-center gap-3 border-b border-[#eef0eb] py-2.5 print:break-inside-avoid" :class="i === 0 ? 'border-t' : ''">
                                     <div class="min-w-0 flex-1">
                                         <p class="text-xs text-[#82908a]">{{ e.instrument }}<span v-if="e.instance > 1"> · visit {{ e.instance }}</span></p>
                                     </div>
@@ -211,7 +227,7 @@ function roleLabel(role: Role): string { return role === 'baseline' ? 'Baseline'
                     </section>
 
                     <!-- Lifetime flags -->
-                    <section v-if="patient.lifetime_flags.length" class="mt-4 border border-[#d9ded7] bg-[#fcfcfb] p-6">
+                    <section v-if="patient.lifetime_flags.length" class="mt-4 border border-[#d9ded7] bg-[#fcfcfb] p-6 print:break-inside-avoid">
                         <h2 class="text-sm font-bold text-[#244847]">Lifetime access flags</h2>
                         <p class="mt-0.5 text-[11px] text-[#788681]">These forms have no date field — access is recorded, not when. A flag can be set at more than one project.</p>
                         <div class="mt-3 flex flex-wrap gap-2">
