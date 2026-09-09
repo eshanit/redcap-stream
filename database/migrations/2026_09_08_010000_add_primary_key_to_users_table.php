@@ -5,19 +5,24 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * The live `users` table was missing a primary key / AUTO_INCREMENT on `id`
- * entirely (confirmed via SHOW CREATE TABLE - no PRIMARY KEY, no UNIQUE KEY
- * anywhere on the table), unrelated to and predating the tier migration.
- * Every INSERT that relies on MySQL generating `id` (registration, User::
- * create()) fails with "Field 'id' doesn't have a default value". Existing
- * data was checked first and is clean: 15 rows, all ids distinct and
- * non-null, no duplicate emails - safe to add both constraints directly.
+ * The `users` table was missing AUTO_INCREMENT on `id`, causing every INSERT
+ * that relies on MySQL generating it (registration, User::create()) to fail
+ * with "Field 'id' doesn't have a default value". This is not consistent
+ * across environments: on dev there was no PRIMARY KEY at all, but on the
+ * live server a PRIMARY KEY on `id` already existed (confirmed by MySQL
+ * rejecting `ADD PRIMARY KEY` with "1068 Multiple primary key defined") -
+ * only AUTO_INCREMENT was missing there. Both cases are handled so this
+ * migration is safe to run on either.
  */
 return new class extends Migration
 {
     public function up(): void
     {
-        DB::statement('ALTER TABLE users MODIFY id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, ADD PRIMARY KEY (id)');
+        if ($this->hasIndex('users', 'PRIMARY')) {
+            DB::statement('ALTER TABLE users MODIFY id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT');
+        } else {
+            DB::statement('ALTER TABLE users MODIFY id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, ADD PRIMARY KEY (id)');
+        }
 
         if (! $this->hasIndex('users', 'users_email_unique')) {
             Schema::table('users', function ($table) {
@@ -28,11 +33,18 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('users', function ($table) {
-            $table->dropUnique('users_email_unique');
-        });
+        if ($this->hasIndex('users', 'users_email_unique')) {
+            Schema::table('users', function ($table) {
+                $table->dropUnique('users_email_unique');
+            });
+        }
 
-        DB::statement('ALTER TABLE users DROP PRIMARY KEY, MODIFY id BIGINT UNSIGNED NOT NULL');
+        // Deliberately does not DROP PRIMARY KEY - on at least one
+        // environment (live) it pre-existed this migration, so removing it
+        // here would be destructive on a server this migration didn't
+        // create it on. Only the AUTO_INCREMENT this migration added is
+        // reverted.
+        DB::statement('ALTER TABLE users MODIFY id BIGINT UNSIGNED NOT NULL');
     }
 
     private function hasIndex(string $table, string $indexName): bool
