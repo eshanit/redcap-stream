@@ -20,6 +20,7 @@ interface ReportRow {
 const props = defineProps<{
     appTitle: string;
     registry: { groups: GroupMeta[]; methods?: Record<string, string>; method_common?: string; indicators?: { key: string; variables: string | null }[] };
+    filterOptions: { districts: string[]; facilities: string[] };
 }>();
 
 const expanded = ref<Set<string>>(new Set());
@@ -77,12 +78,18 @@ const loading = ref(false);
 const error = ref('');
 const report = ref<ReportRow[]>([]);
 const detailDim = ref<'facility' | 'district'>('facility');
+const district = ref('');
+const facility = ref('');
+const filterLabel = computed(() => [district.value, facility.value].filter(Boolean).join(', '));
 
 async function load(): Promise<void> {
     loading.value = true;
     error.value = '';
     try {
-        const response = await fetch(`/api/data6/reports?from=${from.value}&to=${to.value}`, { headers: { Accept: 'application/json' } });
+        const params = new URLSearchParams({ from: from.value, to: to.value });
+        if (district.value) params.set('district', district.value);
+        if (facility.value) params.set('facility', facility.value);
+        const response = await fetch(`/api/data6/reports?${params.toString()}`, { headers: { Accept: 'application/json' } });
         if (!response.ok) throw new Error(`Request failed (${response.status})`);
         report.value = (await response.json()).report ?? [];
     } catch {
@@ -93,7 +100,13 @@ async function load(): Promise<void> {
 }
 onMounted(load);
 
-const excelUrl = computed(() => `/api/data6/reports/excel?from=${from.value}&to=${to.value}`);
+const excelUrl = computed(() => {
+    const params = new URLSearchParams({ from: from.value, to: to.value });
+    if (district.value) params.set('district', district.value);
+    if (facility.value) params.set('facility', facility.value);
+
+    return `/api/data6/reports/excel?${params.toString()}`;
+});
 const groups = computed(() =>
     props.registry.groups
         .map((g) => ({ ...g, rows: report.value.filter((r) => r.group === g.key) }))
@@ -148,7 +161,7 @@ function downloadPdf(): void {
                             All 45 AHP indicators for one reporting period, disaggregated by age band, sex, facility
                             and district — matching the kpq indicator matrix. Download the Excel workbook for submission.
                         </p>
-                        <p class="mt-2 hidden text-xs text-[#60716d] print:block">Report generated {{ generatedOn }}, covering {{ from }} → {{ to }}</p>
+                        <p class="mt-2 hidden text-xs text-[#60716d] print:block">Report generated {{ generatedOn }}, covering {{ from }} → {{ to }}<span v-if="filterLabel"> · Filtered to {{ filterLabel }}</span></p>
                     </div>
                     <div class="flex items-center gap-2 print:hidden">
                         <button v-if="canDownloadPdf" class="inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-5 py-2.5 text-xs font-bold text-[#3c605b] transition hover:bg-white" title="Opens the print dialog — choose &quot;Save as PDF&quot; as the destination" @click="downloadPdf">
@@ -183,6 +196,14 @@ function downloadPdf(): void {
                         </label>
                     </template>
                     <span class="text-xs font-semibold text-[#7b8984] print:hidden">{{ from }} → {{ to }}</span>
+                    <select v-model="district" class="border border-[#cbd3cd] bg-white px-3 py-2 text-xs text-[#45645e] print:hidden" @change="load">
+                        <option value="">All districts</option>
+                        <option v-for="d in filterOptions.districts" :key="d" :value="d">{{ d }}</option>
+                    </select>
+                    <select v-model="facility" class="border border-[#cbd3cd] bg-white px-3 py-2 text-xs text-[#45645e] print:hidden" @change="load">
+                        <option value="">All facilities</option>
+                        <option v-for="f in filterOptions.facilities" :key="f" :value="f">{{ f }}</option>
+                    </select>
                 </section>
 
                 <details v-if="registry.method_common" class="mt-4 border border-[#d9ded7] bg-[#fcfcfb] px-4 py-3 print:break-inside-avoid">
@@ -203,7 +224,7 @@ function downloadPdf(): void {
                 <template v-else-if="report.length">
                     <!-- Summary tables by group -->
                     <section v-for="group in groups" :key="group.key" class="mt-7">
-                        <h2 class="mb-2 font-serif text-xl text-[#173b3b] print:break-after-avoid">{{ group.label }}</h2>
+                        <h2 class="mb-2 font-serif text-xl text-[#173b3b] print:break-after-avoid">{{ group.label }}<span v-if="filterLabel" class="text-base font-sans font-normal text-[#788681]"> ({{ filterLabel }})</span></h2>
                         <div class="overflow-x-auto border border-[#d9ded7] bg-[#fcfcfb] print:overflow-visible">
                             <table class="w-full min-w-[860px] text-left text-xs" style="font-variant-numeric: tabular-nums">
                                 <thead class="border-b border-[#d9ded7] bg-[#f0f2ec] text-[10px] font-bold uppercase tracking-wider text-[#5a6f69]">

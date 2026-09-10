@@ -29,7 +29,7 @@ interface Insights {
     mh_pathway: { screened: number; positive: number; positive_pct: number | null; positive_managed_pct: number | null; outcomes: LabelCount[]; substance: number; note: string };
 }
 
-defineProps<{ appTitle: string }>();
+const props = defineProps<{ appTitle: string; filterOptions: { districts: string[]; facilities: string[] } }>();
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
     { title: 'AHP overview', href: '/data6' },
@@ -59,6 +59,11 @@ function applyPreset(key: string): void {
     if (preset?.range) { const r = preset.range(); from.value = r.from; to.value = r.to; load(); }
 }
 
+// ---- district/facility filter ----------------------------------------------
+const district = ref('');
+const facility = ref('');
+const filterLabel = computed(() => [district.value, facility.value].filter(Boolean).join(', '));
+
 // ---- data -----------------------------------------------------------------
 const loading = ref(false);
 const error = ref('');
@@ -67,7 +72,10 @@ async function load(): Promise<void> {
     loading.value = true;
     error.value = '';
     try {
-        const response = await fetch(`/api/data6/insights?from=${from.value}&to=${to.value}`, { headers: { Accept: 'application/json' } });
+        const params = new URLSearchParams({ from: from.value, to: to.value });
+        if (district.value) params.set('district', district.value);
+        if (facility.value) params.set('facility', facility.value);
+        const response = await fetch(`/api/data6/insights?${params.toString()}`, { headers: { Accept: 'application/json' } });
         if (!response.ok) throw new Error(`Request failed (${response.status})`);
         data.value = await response.json();
     } catch {
@@ -369,7 +377,7 @@ function downloadPdf(): void {
                             manager asks that no single indicator answers. Adolescents aged 10–19; each client counted once
                             across projects.
                         </p>
-                        <p class="mt-2 hidden text-xs text-[#60716d] print:block">Report generated {{ generatedOn }}, covering {{ from }} → {{ to }}</p>
+                        <p class="mt-2 hidden text-xs text-[#60716d] print:block">Report generated {{ generatedOn }}, covering {{ from }} → {{ to }}<span v-if="filterLabel"> · Filtered to {{ filterLabel }}</span></p>
                     </div>
                     <div class="flex items-center gap-2 print:hidden">
                         <button v-if="canDownloadPdf" class="inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-5 py-2.5 text-xs font-bold text-[#3c605b] transition hover:bg-white" title="Opens the print dialog — choose &quot;Save as PDF&quot; as the destination" @click="downloadPdf">
@@ -389,6 +397,14 @@ function downloadPdf(): void {
                         <label class="text-xs text-[#55706a] print:hidden">To <input v-model="to" type="date" class="ml-1 border border-[#cbd3cd] bg-white px-2 py-1.5 text-xs" @change="load" /></label>
                     </template>
                     <span class="text-xs font-semibold text-[#7b8984] print:hidden">{{ from }} → {{ to }}</span>
+                    <select v-model="district" class="border border-[#cbd3cd] bg-white px-3 py-2 text-xs text-[#45645e] print:hidden" @change="load">
+                        <option value="">All districts</option>
+                        <option v-for="d in filterOptions.districts" :key="d" :value="d">{{ d }}</option>
+                    </select>
+                    <select v-model="facility" class="border border-[#cbd3cd] bg-white px-3 py-2 text-xs text-[#45645e] print:hidden" @change="load">
+                        <option value="">All facilities</option>
+                        <option v-for="f in filterOptions.facilities" :key="f" :value="f">{{ f }}</option>
+                    </select>
                 </section>
 
                 <div v-if="error" class="mt-5 flex items-center gap-2 bg-[#fff1ed] px-4 py-3 text-sm text-[#b74f3d]"><CircleAlert class="size-4 shrink-0" />{{ error }}</div>

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Projects\Data6;
 
 use App\Http\Controllers\Controller;
 use App\Services\Data6\CacheVersion;
+use App\Services\Data6\IndicatorService;
 use App\Services\Data6\ReportService;
 use App\Services\Data6\ReportWorkbook;
 use Illuminate\Http\Request;
@@ -14,30 +15,32 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReportController extends Controller
 {
-    public function index()
+    public function index(IndicatorService $indicators)
     {
         return Inertia::render('Data6/Reports', [
             'appTitle' => config('redcap.data6_unit.title'),
             'registry' => config('data6_indicators'),
+            'filterOptions' => $indicators->filterOptions(),
         ]);
     }
 
     public function data(Request $request, ReportService $reports)
     {
-        $validated = $this->validatePeriod($request);
+        $validated = $this->validateFilters($request);
 
         return response()->json([
             'period' => $validated,
-            'report' => $this->cachedReport($reports, $validated['from'], $validated['to']),
+            'report' => $this->cachedReport($reports, $validated),
         ]);
     }
 
     public function excel(Request $request, ReportService $reports, ReportWorkbook $workbook)
     {
-        $validated = $this->validatePeriod($request);
-        $report = $this->cachedReport($reports, $validated['from'], $validated['to']);
+        $validated = $this->validateFilters($request);
+        $report = $this->cachedReport($reports, $validated);
         $book = $workbook->build($report, $validated['from'], $validated['to']);
-        $filename = "AHP_indicators_{$validated['from']}_{$validated['to']}.xlsx";
+        $scope = implode('', array_map(fn ($v) => "_{$v}", array_filter([$validated['district'] ?? null, $validated['facility'] ?? null])));
+        $filename = "AHP_indicators{$scope}_{$validated['from']}_{$validated['to']}.xlsx";
 
         return new StreamedResponse(function () use ($book) {
             (new Xlsx($book))->save('php://output');
@@ -48,20 +51,22 @@ class ReportController extends Controller
         ]);
     }
 
-    private function validatePeriod(Request $request): array
+    private function validateFilters(Request $request): array
     {
         return $request->validate([
             'from' => ['required', 'date_format:Y-m-d'],
             'to' => ['required', 'date_format:Y-m-d', 'after_or_equal:from'],
+            'district' => ['nullable', 'string', 'max:30', 'regex:/^[A-Za-z0-9_-]+$/'],
+            'facility' => ['nullable', 'string', 'max:30', 'regex:/^[A-Za-z0-9_-]+$/'],
         ]);
     }
 
-    private function cachedReport(ReportService $reports, string $from, string $to): array
+    private function cachedReport(ReportService $reports, array $filters): array
     {
         return Cache::remember(
-            CacheVersion::key("report:{$from}:{$to}"),
+            CacheVersion::key('report:'.md5(json_encode($filters))),
             now()->addMinutes(30),
-            fn () => $reports->report($from, $to),
+            fn () => $reports->report($filters['from'], $filters['to'], $filters['district'] ?? null, $filters['facility'] ?? null),
         );
     }
 }

@@ -36,13 +36,15 @@ class InsightsService
 
     private const DATELESS = ['Mental health', 'Health education', 'Counselling'];
 
-    public function compute(string $from, string $to): array
+    public function compute(string $from, string $to, ?string $district = null, ?string $facility = null): array
     {
         if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $from) || ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $to)) {
             throw new InvalidArgumentException('Invalid period.');
         }
         $this->from = $from;
         $this->to = $to;
+        $this->district = $district;
+        $this->facility = $facility;
 
         $profiles = $this->profiles();
 
