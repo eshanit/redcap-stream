@@ -413,7 +413,7 @@ function downloadPdf(): void {
                 <template v-else-if="data">
                     <!-- Headline findings -->
                     <section class="mt-6 border-l-4 border-[#e86d52] bg-[#fcfcfb] px-6 py-5 print:break-inside-avoid">
-                        <h2 class="flex items-center gap-2 text-sm font-bold text-[#244847]"><Lightbulb class="size-4 text-[#e2644b]" />What stands out</h2>
+                        <h2 class="flex items-center gap-2 text-sm font-bold text-[#244847]"><Lightbulb class="size-4 text-[#e2644b]" />What stands out<span v-if="filterLabel" class="font-normal text-[#788681]"> ({{ filterLabel }})</span></h2>
                         <ul class="mt-3 space-y-2 text-sm leading-6 text-[#365652]">
                             <li v-for="(f, i) in headlineFindings" :key="i" class="flex gap-2"><span class="mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#e86d52]" />{{ f }}</li>
                         </ul>
@@ -423,7 +423,7 @@ function downloadPdf(): void {
                     <section class="mt-6 border border-[#d9ded7] bg-[#fcfcfb] p-5">
                         <div class="flex flex-wrap items-start justify-between gap-3">
                             <div>
-                                <h2 class="font-serif text-xl text-[#173b3b]">HIV: from testing to suppression</h2>
+                                <h2 class="font-serif text-xl text-[#173b3b]">HIV: from testing to suppression<span v-if="filterLabel" class="font-sans text-base font-normal text-[#788681]"> ({{ filterLabel }})</span></h2>
                                 <p class="mt-1 text-xs text-[#788681]">Answers: of adolescents who tested positive, how many got into the ART programme — and how fast?</p>
                             </div>
                             <div class="flex flex-wrap items-center gap-2 print:hidden">
@@ -455,7 +455,7 @@ function downloadPdf(): void {
                                 </div>
                                 <div class="print:break-inside-avoid">
                                     <div class="flex flex-wrap items-center justify-between gap-2">
-                                        <h3 class="text-xs font-bold text-[#244847]">Time from positive test to ART/HIV care</h3>
+                                        <h3 class="text-xs font-bold text-[#244847]">Time from positive test to ART/HIV care<span v-if="filterLabel" class="font-normal text-[#788681]"> ({{ filterLabel }})</span></h3>
                                         <div class="flex flex-wrap items-center gap-1.5 print:hidden">
                                             <template v-if="canDownload">
                                                 <button class="inline-flex items-center gap-1 rounded-full border border-[#bdc9c3] px-2 py-0.5 text-[10px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadTimeToArtChart('png')"><Download class="size-2.5" />PNG</button>
@@ -473,7 +473,7 @@ function downloadPdf(): void {
                                     <p v-if="timeToArtInsight" class="mt-2 text-[11.5px] leading-4.5 text-[#52655f]">{{ timeToArtInsight }}</p>
                                     <template v-if="data.hiv_cascade.time_to_art_distribution && data.hiv_cascade.time_to_art_distribution.n >= 5">
                                         <div class="mt-3 flex flex-wrap items-center justify-between gap-2 print:break-inside-avoid">
-                                            <h3 class="text-xs font-bold text-[#244847]">Real spread (n={{ data.hiv_cascade.time_to_art_distribution.n }})</h3>
+                                            <h3 class="text-xs font-bold text-[#244847]">Real spread (n={{ data.hiv_cascade.time_to_art_distribution.n }})<span v-if="filterLabel" class="font-normal text-[#788681]"> ({{ filterLabel }})</span></h3>
                                             <div v-if="canDownload" class="flex flex-wrap items-center gap-1.5 print:hidden">
                                                 <button class="inline-flex items-center gap-1 rounded-full border border-[#bdc9c3] px-2 py-0.5 text-[10px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadTimeToArtBoxChart('png')"><Download class="size-2.5" />PNG</button>
                                                 <button class="inline-flex items-center gap-1 rounded-full border border-[#bdc9c3] px-2 py-0.5 text-[10px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadTimeToArtBoxChart('jpg')"><Download class="size-2.5" />JPG</button>
