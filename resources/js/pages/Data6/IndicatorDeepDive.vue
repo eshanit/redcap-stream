@@ -30,7 +30,10 @@ interface Meta {
     disaggregation: string[]; note: string | null; no_period?: boolean; analysis?: string[] | null;
 }
 
-const props = defineProps<{ appTitle: string; meta: Meta; method: string | null; methodCommon: string | null }>();
+const props = defineProps<{
+    appTitle: string; meta: Meta; method: string | null; methodCommon: string | null;
+    filterOptions: { districts: string[]; facilities: string[] };
+}>();
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -62,6 +65,19 @@ function applyPreset(key: string): void {
     if (preset?.range) { const r = preset.range(); from.value = r.from; to.value = r.to; load(); }
 }
 
+// ---- district/facility filter - scopes the whole deep-dive (total, trend,
+// every breakdown), same demogSql() HAVING mechanism the main Indicators.vue
+// page already uses --------------------------------------------------------
+const district = ref('');
+const facility = ref('');
+
+// Human-readable + filename-safe forms of the active filter, so a chart
+// title (and a downloaded PNG/JPG/CSV) is still self-describing once it
+// leaves this page - a filtered chart shared or exported on its own would
+// otherwise carry no indication it's scoped to one district/facility.
+const filterLabel = computed(() => [district.value, facility.value].filter(Boolean).join(', '));
+const filenameToken = computed(() => [district.value, facility.value].filter(Boolean).map((v) => `_${v}`).join(''));
+
 // ---- data -----------------------------------------------------------------
 const loading = ref(false);
 const error = ref('');
@@ -71,7 +87,10 @@ async function load(): Promise<void> {
     loading.value = true;
     error.value = '';
     try {
-        const response = await fetch(`/api/data6/indicators/${props.meta.code}/deep?from=${from.value}&to=${to.value}`, { headers: { Accept: 'application/json' } });
+        const params = new URLSearchParams({ from: from.value, to: to.value });
+        if (district.value) params.set('district', district.value);
+        if (facility.value) params.set('facility', facility.value);
+        const response = await fetch(`/api/data6/indicators/${props.meta.code}/deep?${params.toString()}`, { headers: { Accept: 'application/json' } });
         if (!response.ok) throw new Error(`Request failed (${response.status})`);
         dive.value = (await response.json()).indicator;
     } catch {
@@ -194,7 +213,7 @@ async function downloadChartImage(chartRef: typeof trendChartRef, suffix: string
     const pngUri = result?.imgURI ?? null;
     if (!pngUri) return;
 
-    const filename = `${props.meta.code}_${suffix}_${from.value}_${to.value}.${format}`;
+    const filename = `${props.meta.code}_${suffix}${filenameToken.value}_${from.value}_${to.value}.${format}`;
 
     if (format === 'png') {
         triggerDownload(pngUri, filename);
@@ -243,7 +262,7 @@ function downloadCsv(headers: string[], rows: (string | number | null)[][], file
     URL.revokeObjectURL(link.href);
 }
 function csvFilename(suffix: string): string {
-    return `${props.meta.code}_${suffix}_${from.value}_${to.value}.csv`;
+    return `${props.meta.code}_${suffix}${filenameToken.value}_${from.value}_${to.value}.csv`;
 }
 
 // ---- PDF export (print-driven) -------------------------------------------
@@ -491,6 +510,17 @@ const statusBadges: Record<string, { label: string; cls: string }> = {
                         </template>
                         <span v-if="!meta.no_period" class="text-xs font-semibold text-[#7b8984]">{{ from }} → {{ to }}</span>
                         <span v-else class="text-xs font-semibold text-[#7b8984]">All-time value — no date field on this instrument</span>
+                        <select v-model="district" class="border border-[#cbd3cd] bg-white px-3 py-2 text-xs text-[#45645e] print:hidden" @change="load">
+                            <option value="">All districts</option>
+                            <option v-for="d in filterOptions.districts" :key="d" :value="d">{{ d }}</option>
+                        </select>
+                        <select v-model="facility" class="border border-[#cbd3cd] bg-white px-3 py-2 text-xs text-[#45645e] print:hidden" @change="load">
+                            <option value="">All facilities</option>
+                            <option v-for="f in filterOptions.facilities" :key="f" :value="f">{{ f }}</option>
+                        </select>
+                        <span v-if="district || facility" class="hidden text-xs font-semibold text-[#7b8984] print:inline">
+                            · Filtered to {{ [district, facility].filter(Boolean).join(', ') }}
+                        </span>
                     </div>
                     <div class="flex items-center gap-2 print:hidden">
                         <button
@@ -514,7 +544,7 @@ const statusBadges: Record<string, { label: string; cls: string }> = {
                 <template v-else-if="dive">
                     <section class="mt-6 flex flex-wrap items-end gap-6 border-l-4 border-[#e86d52] bg-[#fcfcfb] px-6 py-5 print:break-inside-avoid">
                         <div>
-                            <p class="text-xs font-bold uppercase tracking-wider text-[#76827e]">{{ meta.no_period ? 'All-time value' : 'Value for the period' }}</p>
+                            <p class="text-xs font-bold uppercase tracking-wider text-[#76827e]">{{ meta.no_period ? 'All-time value' : 'Value for the period' }}<span v-if="filterLabel"> — {{ filterLabel }}</span></p>
                             <p class="mt-1 font-serif text-5xl text-[#0b2c2c]">{{ totalText }}</p>
                         </div>
                         <p v-if="dive.total?.numerator !== undefined" class="pb-1.5 text-sm text-[#60716d]" style="font-variant-numeric: tabular-nums">
@@ -525,7 +555,7 @@ const statusBadges: Record<string, { label: string; cls: string }> = {
 
                     <section v-if="monthTrend.length" class="mt-4 border border-[#d9ded7] bg-[#fcfcfb] p-5 print:break-inside-avoid">
                         <div class="flex flex-wrap items-center justify-between gap-3">
-                            <h2 class="text-sm font-bold text-[#244847]">Monthly trend</h2>
+                            <h2 class="text-sm font-bold text-[#244847]">Monthly trend<span v-if="filterLabel" class="font-normal text-[#788681]"> ({{ filterLabel }})</span></h2>
                             <div class="flex flex-wrap items-center gap-2">
                                 <span class="rounded-full border border-[#cbd3cd] bg-white px-3 py-1 text-[11px] font-bold text-[#55706a]">
                                     {{ cumulativeLabel }}: <span class="text-[#173b3b]">{{ cumulativeText }}</span>
@@ -553,7 +583,7 @@ const statusBadges: Record<string, { label: string; cls: string }> = {
 
                     <section v-if="showSexTrend" class="mt-4 border border-[#d9ded7] bg-[#fcfcfb] p-5 print:break-inside-avoid">
                         <div class="flex flex-wrap items-center justify-between gap-3">
-                            <h2 class="text-sm font-bold text-[#244847]">Monthly trend by sex</h2>
+                            <h2 class="text-sm font-bold text-[#244847]">Monthly trend by sex<span v-if="filterLabel" class="font-normal text-[#788681]"> ({{ filterLabel }})</span></h2>
                             <div v-if="canDownload" class="flex flex-wrap items-center gap-2 print:hidden">
                                 <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadSexChart('png')">
                                     <Download class="size-3" />PNG
@@ -578,7 +608,7 @@ const statusBadges: Record<string, { label: string; cls: string }> = {
                         <div class="flex flex-col gap-4">
                             <div class="border border-[#d9ded7] bg-[#fcfcfb] p-5 print:break-inside-avoid">
                                 <div class="flex flex-wrap items-center justify-between gap-3">
-                                    <h2 class="text-sm font-bold text-[#244847]">By facility</h2>
+                                    <h2 class="text-sm font-bold text-[#244847]">By facility<span v-if="filterLabel" class="font-normal text-[#788681]"> ({{ filterLabel }})</span></h2>
                                     <div v-if="buckets('facility').length && canDownload" class="flex flex-wrap items-center gap-2 print:hidden">
                                         <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadFacilityChart('png')"><Download class="size-3" />PNG</button>
                                         <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadFacilityChart('jpg')"><Download class="size-3" />JPG</button>
@@ -595,7 +625,7 @@ const statusBadges: Record<string, { label: string; cls: string }> = {
                             </div>
                             <div v-if="hasSexDim && facilitySex.length" class="border border-[#d9ded7] bg-[#fcfcfb] p-5 print:break-inside-avoid">
                                 <div class="flex flex-wrap items-center justify-between gap-3">
-                                    <h2 class="text-sm font-bold text-[#244847]">By facility, by sex</h2>
+                                    <h2 class="text-sm font-bold text-[#244847]">By facility, by sex<span v-if="filterLabel" class="font-normal text-[#788681]"> ({{ filterLabel }})</span></h2>
                                     <div v-if="canDownload" class="flex flex-wrap items-center gap-2 print:hidden">
                                         <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadFacilitySexChart('png')"><Download class="size-3" />PNG</button>
                                         <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadFacilitySexChart('jpg')"><Download class="size-3" />JPG</button>
@@ -611,7 +641,7 @@ const statusBadges: Record<string, { label: string; cls: string }> = {
                             </div>
                             <div v-if="facilityAge.length" class="border border-[#d9ded7] bg-[#fcfcfb] p-5 print:break-inside-avoid">
                                 <div class="flex flex-wrap items-center justify-between gap-3">
-                                    <h2 class="text-sm font-bold text-[#244847]">By facility, by age band</h2>
+                                    <h2 class="text-sm font-bold text-[#244847]">By facility, by age band<span v-if="filterLabel" class="font-normal text-[#788681]"> ({{ filterLabel }})</span></h2>
                                     <div v-if="canDownload" class="flex flex-wrap items-center gap-2 print:hidden">
                                         <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadFacilityAgeChart('png')"><Download class="size-3" />PNG</button>
                                         <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadFacilityAgeChart('jpg')"><Download class="size-3" />JPG</button>
@@ -629,7 +659,7 @@ const statusBadges: Record<string, { label: string; cls: string }> = {
                         <div class="flex flex-col gap-4">
                             <div class="border border-[#d9ded7] bg-[#fcfcfb] p-5 print:break-inside-avoid">
                                 <div class="flex flex-wrap items-center justify-between gap-3">
-                                    <h2 class="text-sm font-bold text-[#244847]">By district</h2>
+                                    <h2 class="text-sm font-bold text-[#244847]">By district<span v-if="filterLabel" class="font-normal text-[#788681]"> ({{ filterLabel }})</span></h2>
                                     <div v-if="buckets('district').length && canDownload" class="flex flex-wrap items-center gap-2 print:hidden">
                                         <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadDistrictChart('png')"><Download class="size-3" />PNG</button>
                                         <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadDistrictChart('jpg')"><Download class="size-3" />JPG</button>
@@ -646,7 +676,7 @@ const statusBadges: Record<string, { label: string; cls: string }> = {
                             </div>
                             <div v-if="hasSexDim && districtSex.length" class="border border-[#d9ded7] bg-[#fcfcfb] p-5 print:break-inside-avoid">
                                 <div class="flex flex-wrap items-center justify-between gap-3">
-                                    <h2 class="text-sm font-bold text-[#244847]">By district, by sex</h2>
+                                    <h2 class="text-sm font-bold text-[#244847]">By district, by sex<span v-if="filterLabel" class="font-normal text-[#788681]"> ({{ filterLabel }})</span></h2>
                                     <div v-if="canDownload" class="flex flex-wrap items-center gap-2 print:hidden">
                                         <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadDistrictSexChart('png')"><Download class="size-3" />PNG</button>
                                         <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadDistrictSexChart('jpg')"><Download class="size-3" />JPG</button>
@@ -662,7 +692,7 @@ const statusBadges: Record<string, { label: string; cls: string }> = {
                             </div>
                             <div class="grid grid-cols-2 gap-4 print:break-inside-avoid">
                                 <div class="border border-[#d9ded7] bg-[#fcfcfb] p-5">
-                                    <h2 class="text-sm font-bold text-[#244847]">By age band</h2>
+                                    <h2 class="text-sm font-bold text-[#244847]">By age band<span v-if="filterLabel" class="font-normal text-[#788681]"> ({{ filterLabel }})</span></h2>
                                     <table class="mt-2 w-full text-xs" style="font-variant-numeric: tabular-nums">
                                         <tbody>
                                             <tr v-for="b in buckets('age_band')" :key="b.label" class="border-b border-[#eef0eb] last:border-0">
@@ -674,7 +704,7 @@ const statusBadges: Record<string, { label: string; cls: string }> = {
                                     </table>
                                 </div>
                                 <div class="border border-[#d9ded7] bg-[#fcfcfb] p-5">
-                                    <h2 class="text-sm font-bold text-[#244847]">By sex</h2>
+                                    <h2 class="text-sm font-bold text-[#244847]">By sex<span v-if="filterLabel" class="font-normal text-[#788681]"> ({{ filterLabel }})</span></h2>
                                     <table class="mt-2 w-full text-xs" style="font-variant-numeric: tabular-nums">
                                         <tbody>
                                             <tr v-for="b in buckets('sex')" :key="b.label" class="border-b border-[#eef0eb] last:border-0">
@@ -691,7 +721,7 @@ const statusBadges: Record<string, { label: string; cls: string }> = {
 
                     <section v-if="buckets('service_point').length" class="mt-4 border border-[#d9ded7] bg-[#fcfcfb] p-5 print:break-inside-avoid">
                         <div class="flex flex-wrap items-center justify-between gap-3">
-                            <h2 class="text-sm font-bold text-[#244847]">By service point</h2>
+                            <h2 class="text-sm font-bold text-[#244847]">By service point<span v-if="filterLabel" class="font-normal text-[#788681]"> ({{ filterLabel }})</span></h2>
                             <div v-if="canDownload" class="flex flex-wrap items-center gap-2 print:hidden">
                                 <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadServicePointChart('png')"><Download class="size-3" />PNG</button>
                                 <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadServicePointChart('jpg')"><Download class="size-3" />JPG</button>
@@ -708,7 +738,7 @@ const statusBadges: Record<string, { label: string; cls: string }> = {
 
                     <section v-if="hasSexDim && servicePointSex.length" class="mt-4 border border-[#d9ded7] bg-[#fcfcfb] p-5 print:break-inside-avoid">
                         <div class="flex flex-wrap items-center justify-between gap-3">
-                            <h2 class="text-sm font-bold text-[#244847]">By service point, by sex</h2>
+                            <h2 class="text-sm font-bold text-[#244847]">By service point, by sex<span v-if="filterLabel" class="font-normal text-[#788681]"> ({{ filterLabel }})</span></h2>
                             <div v-if="canDownload" class="flex flex-wrap items-center gap-2 print:hidden">
                                 <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadServicePointSexChart('png')"><Download class="size-3" />PNG</button>
                                 <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadServicePointSexChart('jpg')"><Download class="size-3" />JPG</button>

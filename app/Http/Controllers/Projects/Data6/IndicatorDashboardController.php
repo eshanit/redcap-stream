@@ -12,7 +12,7 @@ use Inertia\Inertia;
 
 class IndicatorDashboardController extends Controller
 {
-    public function show(string $code)
+    public function show(string $code, IndicatorService $indicators)
     {
         $meta = collect(config('data6_indicators.indicators'))->firstWhere('code', $code);
         abort_if($meta === null, 404);
@@ -22,6 +22,7 @@ class IndicatorDashboardController extends Controller
             'meta' => $meta,
             'method' => config('data6_indicators.methods')[$meta['key']] ?? null,
             'methodCommon' => config('data6_indicators.method_common'),
+            'filterOptions' => $indicators->filterOptions(),
         ]);
     }
 
@@ -30,12 +31,14 @@ class IndicatorDashboardController extends Controller
         $validated = $request->validate([
             'from' => ['required', 'date_format:Y-m-d'],
             'to' => ['required', 'date_format:Y-m-d', 'after_or_equal:from'],
+            'district' => ['nullable', 'string', 'max:30', 'regex:/^[A-Za-z0-9_-]+$/'],
+            'facility' => ['nullable', 'string', 'max:30', 'regex:/^[A-Za-z0-9_-]+$/'],
         ]);
 
         $result = Cache::remember(
-            CacheVersion::key("deepdive:{$code}:{$validated['from']}:{$validated['to']}"),
+            CacheVersion::key('deepdive:'.$code.':'.md5(json_encode($validated))),
             now()->addMinutes(15),
-            fn () => $reports->deepDive($code, $validated['from'], $validated['to']),
+            fn () => $reports->deepDive($code, $validated['from'], $validated['to'], $validated['district'] ?? null, $validated['facility'] ?? null),
         );
 
         abort_if($result === null, 404);

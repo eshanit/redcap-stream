@@ -49,14 +49,22 @@ class ReportService
         return $out;
     }
 
-    /** Full breakdown of ONE indicator (by code), including a monthly trend. */
-    public function deepDive(string $code, string $from, string $to): ?array
+    /**
+     * Full breakdown of ONE indicator (by code), including a monthly trend.
+     * Optional district/facility scope the whole deep-dive (total, trend,
+     * every breakdown) to one facility/district at a time, via demogSql()'s
+     * existing HAVING filter - the same mechanism IndicatorService::compute()
+     * already uses for the main Indicators.vue page.
+     */
+    public function deepDive(string $code, string $from, string $to, ?string $district = null, ?string $facility = null): ?array
     {
         if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $from) || ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $to)) {
             throw new InvalidArgumentException('Invalid report period.');
         }
         $this->from = $from;
         $this->to = $to;
+        $this->district = $district;
+        $this->facility = $facility;
 
         $meta = collect(config('data6_indicators.indicators'))->firstWhere('code', $code);
         if ($meta === null) {
