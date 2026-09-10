@@ -63,6 +63,7 @@ function applyPreset(key: string): void {
 const district = ref('');
 const facility = ref('');
 const filterLabel = computed(() => [district.value, facility.value].filter(Boolean).join(', '));
+const filenameToken = computed(() => [district.value, facility.value].filter(Boolean).map((v) => `_${v}`).join(''));
 
 // ---- data -----------------------------------------------------------------
 const loading = ref(false);
@@ -113,7 +114,7 @@ async function downloadChartImage(chartRef: { value: ApexChartHandle | null }, f
     const result = await chartRef.value?.dataURI({ scale: 2 });
     const pngUri = result?.imgURI ?? null;
     if (!pngUri) return;
-    const fullName = `${filename}.${format}`;
+    const fullName = `${filename}${filenameToken.value}.${format}`;
     if (format === 'png') {
         const link = document.createElement('a');
         link.href = pngUri;
@@ -150,7 +151,7 @@ function downloadCsv(headers: string[], rows: (string | number | null)[][], file
     const blob = new Blob([lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `${filename}.csv`;
+    link.download = `${filename}${filenameToken.value}.csv`;
     link.click();
     URL.revokeObjectURL(link.href);
 }
@@ -499,7 +500,7 @@ function downloadPdf(): void {
                     <!-- Pathways from a service -->
                     <section class="mt-6 grid gap-4 xl:grid-cols-3">
                         <div v-for="pw in [data.sti_pathways, data.hts_pathways, data.opd_pathways]" :key="pw.origin" class="border border-[#d9ded7] bg-[#fcfcfb] p-5 print:break-inside-avoid">
-                            <h2 class="text-sm font-bold text-[#244847]">After {{ pw.origin }}: what else did they use?</h2>
+                            <h2 class="text-sm font-bold text-[#244847]">After {{ pw.origin }}: what else did they use?<span v-if="filterLabel" class="font-normal text-[#788681]"> ({{ filterLabel }})</span></h2>
                             <p class="mt-0.5 text-[11px] text-[#788681]">{{ pw.clients.toLocaleString() }} adolescents used {{ pw.origin }} in the period. Share who also used each service; “after” = dated on/after their first {{ pw.origin }} visit.</p>
                             <table v-if="pw.services.length" class="mt-3 w-full text-xs" style="font-variant-numeric: tabular-nums">
                                 <thead class="text-[10px] font-bold uppercase tracking-wider text-[#82908a]"><tr><th class="pb-1 text-left">Service</th><th class="pb-1 text-right">Also used</th><th class="pb-1 text-right">After</th></tr></thead>
@@ -519,7 +520,7 @@ function downloadPdf(): void {
                     <section class="mt-6 border border-[#d9ded7] bg-[#fcfcfb] p-5">
                         <div class="flex flex-wrap items-center justify-between gap-3">
                             <div>
-                                <h2 class="font-serif text-xl text-[#173b3b]">Service co-utilisation</h2>
+                                <h2 class="font-serif text-xl text-[#173b3b]">Service co-utilisation<span v-if="filterLabel" class="font-sans text-base font-normal text-[#788681]"> ({{ filterLabel }})</span></h2>
                                 <p class="mt-1 text-xs text-[#788681]">Read across a row: of adolescents who used the row service, the % who also used each column service. Mental health, health education and counselling are all-time access flags (no date on those forms).</p>
                             </div>
                             <div class="flex flex-wrap items-center gap-2 print:hidden">
@@ -563,7 +564,7 @@ function downloadPdf(): void {
                     <section class="mt-6 grid gap-4 xl:grid-cols-3">
                         <div class="border border-[#d9ded7] bg-[#fcfcfb] p-5 print:break-inside-avoid">
                             <div class="flex flex-wrap items-center justify-between gap-2">
-                                <h2 class="text-sm font-bold text-[#244847]">Entry points for new adolescents</h2>
+                                <h2 class="text-sm font-bold text-[#244847]">Entry points for new adolescents<span v-if="filterLabel" class="font-normal text-[#788681]"> ({{ filterLabel }})</span></h2>
                                 <div v-if="data.entry_points.services.length" class="flex flex-wrap items-center gap-1.5 print:hidden">
                                     <template v-if="canDownload">
                                         <button class="inline-flex items-center gap-1 rounded-full border border-[#bdc9c3] px-2 py-0.5 text-[10px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadEntryChart('png')"><Download class="size-2.5" />PNG</button>
@@ -586,7 +587,7 @@ function downloadPdf(): void {
                         </div>
                         <div class="border border-[#d9ded7] bg-[#fcfcfb] p-5 print:break-inside-avoid">
                             <div class="flex flex-wrap items-center justify-between gap-2">
-                                <h2 class="text-sm font-bold text-[#244847]">Most common service-to-service moves</h2>
+                                <h2 class="text-sm font-bold text-[#244847]">Most common service-to-service moves<span v-if="filterLabel" class="font-normal text-[#788681]"> ({{ filterLabel }})</span></h2>
                                 <div v-if="data.transitions.top.length" class="flex flex-wrap items-center gap-1.5 print:hidden">
                                     <template v-if="canDownload">
                                         <button class="inline-flex items-center gap-1 rounded-full border border-[#bdc9c3] px-2 py-0.5 text-[10px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadTransitionsChart('png')"><Download class="size-2.5" />PNG</button>
@@ -610,7 +611,7 @@ function downloadPdf(): void {
                         </div>
                         <div class="border border-[#d9ded7] bg-[#fcfcfb] p-5 print:break-inside-avoid">
                             <div class="flex flex-wrap items-center justify-between gap-2">
-                                <h2 class="text-sm font-bold text-[#244847]">Engagement</h2>
+                                <h2 class="text-sm font-bold text-[#244847]">Engagement<span v-if="filterLabel" class="font-normal text-[#788681]"> ({{ filterLabel }})</span></h2>
                                 <div class="flex flex-wrap items-center gap-1.5 print:hidden">
                                     <template v-if="canDownload">
                                         <button class="inline-flex items-center gap-1 rounded-full border border-[#bdc9c3] px-2 py-0.5 text-[10px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadEngagementChart('png')"><Download class="size-2.5" />PNG</button>
@@ -639,7 +640,7 @@ function downloadPdf(): void {
                     <!-- Continua -->
                     <section class="mt-6 grid gap-4 lg:grid-cols-3">
                         <div class="border border-[#d9ded7] bg-[#fcfcfb] p-5 print:break-inside-avoid">
-                            <h2 class="text-sm font-bold text-[#244847]">PrEP continuum</h2>
+                            <h2 class="text-sm font-bold text-[#244847]">PrEP continuum<span v-if="filterLabel" class="font-normal text-[#788681]"> ({{ filterLabel }})</span></h2>
                             <table class="mt-2 w-full text-xs" style="font-variant-numeric: tabular-nums"><tbody>
                                 <tr v-for="s in data.prep_cascade.steps" :key="s.label" class="border-b border-[#eef0eb] last:border-0"><td class="py-1.5 text-[#52514e]">{{ s.label }}</td><td class="py-1.5 text-right font-bold text-[#0b2c2c]">{{ s.count }}</td><td class="py-1.5 text-right text-[#788681]">{{ s.pct_of_previous === null ? '' : `${s.pct_of_previous}%` }}</td></tr>
                                 <tr class="border-t border-[#d9ded7]"><td class="py-1.5 text-[#52514e]">Continuing / discontinued</td><td class="py-1.5 text-right font-bold text-[#0b2c2c]" colspan="2">{{ data.prep_cascade.continuing }} / {{ data.prep_cascade.discontinued }}</td></tr>
@@ -648,7 +649,7 @@ function downloadPdf(): void {
                             <p class="mt-2 text-[10px] leading-4 text-[#7d8b85]">{{ data.prep_cascade.note }}</p>
                         </div>
                         <div class="border border-[#d9ded7] bg-[#fcfcfb] p-5 print:break-inside-avoid">
-                            <h2 class="text-sm font-bold text-[#244847]">Maternal continuum (adolescent mothers)</h2>
+                            <h2 class="text-sm font-bold text-[#244847]">Maternal continuum (adolescent mothers)<span v-if="filterLabel" class="font-normal text-[#788681]"> ({{ filterLabel }})</span></h2>
                             <table class="mt-2 w-full text-xs" style="font-variant-numeric: tabular-nums"><tbody>
                                 <tr class="border-b border-[#eef0eb]"><td class="py-1.5 text-[#52514e]">New ANC bookings</td><td class="py-1.5 text-right font-bold text-[#0b2c2c]">{{ data.anc_continuum.bookings }}</td></tr>
                                 <tr class="border-b border-[#eef0eb]"><td class="py-1.5 text-[#52514e]">…with HIV status documented at booking</td><td class="py-1.5 text-right font-bold text-[#0b2c2c]">{{ pctText(data.anc_continuum.bookings_hiv_known_pct) }}</td></tr>
@@ -660,7 +661,7 @@ function downloadPdf(): void {
                             </tbody></table>
                         </div>
                         <div class="border border-[#d9ded7] bg-[#fcfcfb] p-5 print:break-inside-avoid">
-                            <h2 class="text-sm font-bold text-[#244847]">Mental health pathway</h2>
+                            <h2 class="text-sm font-bold text-[#244847]">Mental health pathway<span v-if="filterLabel" class="font-normal text-[#788681]"> ({{ filterLabel }})</span></h2>
                             <table class="mt-2 w-full text-xs" style="font-variant-numeric: tabular-nums"><tbody>
                                 <tr class="border-b border-[#eef0eb]"><td class="py-1.5 text-[#52514e]">Screened</td><td class="py-1.5 text-right font-bold text-[#0b2c2c]">{{ data.mh_pathway.screened.toLocaleString() }}</td></tr>
                                 <tr class="border-b border-[#eef0eb]"><td class="py-1.5 text-[#52514e]">Screened positive</td><td class="py-1.5 text-right font-bold text-[#0b2c2c]">{{ data.mh_pathway.positive }} · {{ pctText(data.mh_pathway.positive_pct) }}</td></tr>
@@ -675,7 +676,7 @@ function downloadPdf(): void {
                     <!-- Equity + facilities -->
                     <section class="mt-6 grid gap-4 xl:grid-cols-2">
                         <div class="border border-[#d9ded7] bg-[#fcfcfb] p-5">
-                            <h2 class="text-sm font-bold text-[#244847]">Who uses each service</h2>
+                            <h2 class="text-sm font-bold text-[#244847]">Who uses each service<span v-if="filterLabel" class="font-normal text-[#788681]"> ({{ filterLabel }})</span></h2>
                             <p class="mt-0.5 text-[11px] text-[#788681]">Share of each service's adolescent clients by sex and age band — spot services that boys or 10–14s are not reaching.</p>
                             <div class="mt-3 overflow-x-auto print:overflow-visible">
                                 <table class="w-full min-w-[520px] text-xs" style="font-variant-numeric: tabular-nums">
@@ -691,7 +692,7 @@ function downloadPdf(): void {
                             </div>
                         </div>
                         <div class="border border-[#d9ded7] bg-[#fcfcfb] p-5">
-                            <h2 class="text-sm font-bold text-[#244847]">Service integration by facility</h2>
+                            <h2 class="text-sm font-bold text-[#244847]">Service integration by facility<span v-if="filterLabel" class="font-normal text-[#788681]"> ({{ filterLabel }})</span></h2>
                             <p class="mt-0.5 text-[11px] text-[#788681]">Average number of different services per adolescent, and share using more than one — a proxy for how well facilities link services.</p>
                             <table class="mt-3 w-full text-xs" style="font-variant-numeric: tabular-nums">
                                 <thead class="text-[10px] font-bold uppercase tracking-wider text-[#82908a]"><tr><th class="pb-1 text-left">Facility</th><th class="pb-1 text-right">Clients</th><th class="pb-1 text-right">Avg services</th><th class="pb-1 text-right">Multi-service</th></tr></thead>
