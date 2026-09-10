@@ -18,7 +18,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if ($this->hasIndex('users', 'PRIMARY')) {
+        if ($this->idIsPrimaryKey()) {
             DB::statement('ALTER TABLE users MODIFY id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT');
         } else {
             DB::statement('ALTER TABLE users MODIFY id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT, ADD PRIMARY KEY (id)');
@@ -51,5 +51,13 @@ return new class extends Migration
     {
         return collect(DB::select("SHOW INDEX FROM {$table}"))
             ->contains(fn ($row) => $row->Key_name === $indexName);
+    }
+
+    /** Not just "does a PRIMARY KEY exist" - it must actually cover `id`,
+     *  since that's the only column AUTO_INCREMENT is being added to. */
+    private function idIsPrimaryKey(): bool
+    {
+        return collect(DB::select("SHOW INDEX FROM users WHERE Key_name = 'PRIMARY'"))
+            ->contains(fn ($row) => $row->Column_name === 'id');
     }
 };
