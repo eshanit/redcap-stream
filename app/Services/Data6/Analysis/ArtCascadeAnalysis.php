@@ -132,57 +132,68 @@ class ArtCascadeAnalysis
     }
 
     // ------------------------------------------------------------------
-    // 2. Retention across the last 6 eligible cohorts
+    // 2. Retention trend - 6 point-in-time snapshots of AHP009's own rule
     // ------------------------------------------------------------------
 
+    /**
+     * 2026-09 client-supplied methodology: AHP009 is no longer an
+     * initiation-cohort formula, it's a per-record snapshot (see
+     * IndicatorService::artIndicators()'s art_retention block, which this
+     * must stay consistent with). A "trend" here means re-running that same
+     * snapshot rule as of 6 different dates - the last day of each of the
+     * 5 months before `to`, plus `to` itself - not 6 different initiation
+     * cohorts. `cohort_size`/`retained` keep their field names (the Vue
+     * chart reads them unchanged) but now mean "eligible as of that date" /
+     * "retained as of that date".
+     */
     private function retentionTrend(): array
     {
-        $hts = $this->pivotSql(self::$P_ALL, ['art_init' => 'hts_art_init', 'test_date' => 'hts_hiv_date']);
-        $art = $this->pivotSql(self::$P_ART, ['visit_date' => 'art_review_date', 'outcome' => 'art_final_outcome']);
+        $artr = $this->pivotSql(self::$P_ART, ['reg_date' => 'artr_registration_date']);
+        $art = $this->pivotSql(self::$P_ART, [
+            'visit_date' => 'art_review_date', 'next_visit' => 'art_next_review_date', 'outcome' => 'art_final_outcome',
+        ]);
 
-        // The 12-month mark for a cohort initiated in month M falls at M+12.
-        // Only months where that mark has already passed (<= $to) are
-        // eligible; take the 6 most recent such months.
-        $latestEligible = date('Y-m-01', strtotime($this->to.' -12 months'));
-        $earliestEligible = date('Y-m-01', strtotime($latestEligible.' -5 months'));
+        $points = [];
+        for ($i = 5; $i >= 1; $i--) {
+            $points[] = date('Y-m-t', strtotime("{$this->to} -{$i} months"));
+        }
+        $points[] = $this->to;
 
-        $rows = DB::select("
-            WITH htsp AS ({$hts}), artp AS ({$art}),
-            inits AS (
-                SELECT record, MIN(test_date) AS init_dt
-                FROM htsp WHERE art_init = 'Y' AND test_date REGEXP '".self::$DATE_RE."'
-                GROUP BY record
-            ),
-            cohort AS (
-                SELECT i.record, i.init_dt, DATE_FORMAT(i.init_dt, '%Y-%m') AS cohort_month
-                FROM inits i
-                JOIN demog d ON d.record = i.record
-                WHERE i.init_dt BETWEEN '{$earliestEligible}' AND '{$latestEligible}' AND {$this->ageCond('i.init_dt')}
-            )
-            SELECT cohort_month, COUNT(*) AS cohort_size, COALESCE(SUM(retained), 0) AS retained
-            FROM (
-                SELECT c.cohort_month,
-                       CASE WHEN EXISTS (
-                           SELECT 1 FROM artp v
-                           WHERE v.record = c.record AND v.visit_date REGEXP '".self::$DATE_RE."'
-                             AND v.visit_date BETWEEN DATE_ADD(c.init_dt, INTERVAL 270 DAY) AND DATE_ADD(c.init_dt, INTERVAL 455 DAY)
-                       ) AND NOT EXISTS (
-                           SELECT 1 FROM artp o
-                           WHERE o.record = c.record AND o.outcome IN ('4','5') AND o.visit_date REGEXP '".self::$DATE_RE."'
-                             AND o.visit_date <= DATE_ADD(c.init_dt, INTERVAL 365 DAY)
-                       ) THEN 1 ELSE 0 END AS retained
-                FROM cohort c
-            ) t
-            GROUP BY cohort_month
-            ORDER BY cohort_month
-        ");
+        return array_map(function (string $asOf) use ($artr, $art) {
+            $row = DB::selectOne("
+                WITH reg AS (
+                    SELECT record, MIN(reg_date) AS reg_date
+                    FROM ({$artr}) x WHERE reg_date REGEXP '".self::$DATE_RE."'
+                    GROUP BY record
+                ),
+                visits AS (
+                    SELECT p.*,
+                           ROW_NUMBER() OVER (PARTITION BY p.record ORDER BY p.visit_date) AS rn,
+                           COUNT(*) OVER (PARTITION BY p.record) AS n,
+                           LAG(p.next_visit) OVER (PARTITION BY p.record ORDER BY p.visit_date) AS prev_next_visit
+                    FROM ({$art}) p
+                    WHERE p.visit_date REGEXP '".self::$DATE_RE."' AND p.visit_date <= '{$asOf}'
+                ),
+                latest AS (SELECT * FROM visits WHERE rn = n)
+                SELECT
+                  COUNT(*) AS cohort,
+                  COALESCE(SUM(CASE WHEN l.outcome = '1'
+                            AND NOT (l.n > 1 AND l.prev_next_visit REGEXP '".self::$DATE_RE."'
+                                     AND DATEDIFF(l.visit_date, l.prev_next_visit) >= 28)
+                           THEN 1 ELSE 0 END), 0) AS retained
+                FROM latest l
+                JOIN reg r ON r.record = l.record
+                JOIN demog d ON d.record = l.record
+                WHERE DATEDIFF(l.visit_date, r.reg_date) >= 365 AND {$this->ageCond("'{$asOf}'")}
+            ");
 
-        return array_map(fn ($r) => [
-            'label' => $r->cohort_month,
-            'cohort_size' => (int) $r->cohort_size,
-            'retained' => (int) $r->retained,
-            'pct' => $r->cohort_size > 0 ? round($r->retained / $r->cohort_size * 100, 1) : null,
-        ], $rows);
+            return [
+                'label' => date('Y-m', strtotime($asOf)),
+                'cohort_size' => (int) $row->cohort,
+                'retained' => (int) $row->retained,
+                'pct' => $row->cohort > 0 ? round($row->retained / $row->cohort * 100, 1) : null,
+            ];
+        }, $points);
     }
 
     // ------------------------------------------------------------------

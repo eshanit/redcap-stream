@@ -236,49 +236,81 @@ class IndicatorService
             SELECT
               COUNT(CASE WHEN (l.outcome IS NULL OR l.outcome NOT IN ('3','4','5','6'))
                           AND l.next_visit REGEXP '".self::$DATE_RE."'
-                          AND DATE_ADD(l.next_visit, INTERVAL 28 DAY) >= '{$this->to}' THEN 1 END) AS tx_curr,
-              COUNT(CASE WHEN (l.outcome IS NULL OR l.outcome NOT IN ('4','5'))
-                          AND l.next_visit REGEXP '".self::$DATE_RE."'
-                          AND DATE_ADD(l.next_visit, INTERVAL 28 DAY) < '{$this->to}' THEN 1 END) AS ltfu
+                          AND DATE_ADD(l.next_visit, INTERVAL 28 DAY) >= '{$this->to}' THEN 1 END) AS tx_curr
             FROM latest l
             JOIN demog d ON d.record = l.record
             WHERE l.rn = 1 AND {$this->ageAtPeriodEnd()}
         ", $bind);
 
-        // AHP009: cohort = AHP007 initiations 12 months earlier; retained via ART visit history.
-        $cohortFrom = date('Y-m-d', strtotime($this->from.' -12 months'));
-        $cohortTo = date('Y-m-d', strtotime($this->to.' -12 months'));
+        // AHP009 & AHP010 (2026-09 client-supplied methodology): both now
+        // share one per-record check anchored to the client's own OI/ART
+        // registration date, evaluated as of `to` - NOT an HTS-initiation
+        // cohort/period formula, and NOT the same ungated rule AHP008 still
+        // uses (AHP008 is intentionally unchanged - see $status above).
+        //
+        // Eligibility (both indicators): latest recorded visit is >=365
+        // days after artr_registration_date. Clients not yet there are
+        // dropped entirely - not counted toward either indicator.
+        //
+        // AHP009 retained: art_final_outcome = '1' (Active on treatment) at
+        // that latest visit, AND - for clients with more than one visit -
+        // the (n-1)th visit's art_next_review_date isn't 28+ days before
+        // the nth (latest) visit's actual art_review_date (an
+        // independently-computed check that doesn't rely solely on the
+        // clinician having updated art_final_outcome). Visit count `n` is
+        // derived from actual dated art_review_date rows, not the
+        // self-entered art_visit_number field.
+        //
+        // AHP010 LTFU: of the same eligible cohort, not Transferred
+        // out/Died/Opted out (outcomes 4/5/6 are known outcomes, not
+        // "lost"), AND at least one of: outcome isn't '1' (Active); OR the
+        // same (n-1)-vs-n retrospective gap check as AHP009's override; OR
+        // the client is CURRENTLY overdue - their latest art_next_review_date
+        // is 28+ days in the past relative to `to` (catches a client who
+        // never returned at all, which the retrospective check alone
+        // cannot - it can only see a client who came back, just late).
         $retention = $this->one("
-            WITH demog AS ({$demog}), artp AS ({$art}), htsp AS ({$hts}),
-            inits AS (
-                SELECT record, MIN(test_date) AS init_dt
-                FROM htsp WHERE art_init = 'Y' AND test_date REGEXP '".self::$DATE_RE."'
+            WITH demog AS ({$demog}), artp AS ({$art}), artrp AS ({$artr}),
+            reg AS (
+                SELECT record, MIN(reg_date) AS reg_date
+                FROM artrp WHERE reg_date REGEXP '".self::$DATE_RE."'
                 GROUP BY record
-            )
-            SELECT COUNT(*) AS cohort, COALESCE(SUM(t.retained), 0) AS retained
-            FROM (
-                SELECT i.record,
-                       CASE WHEN EXISTS (
-                           SELECT 1 FROM artp v
-                           WHERE v.record = i.record AND v.visit_date REGEXP '".self::$DATE_RE."'
-                             AND v.visit_date BETWEEN DATE_ADD(i.init_dt, INTERVAL 270 DAY) AND DATE_ADD(i.init_dt, INTERVAL 455 DAY)
-                       ) AND NOT EXISTS (
-                           SELECT 1 FROM artp o
-                           WHERE o.record = i.record AND o.outcome IN ('4','5')
-                             AND o.visit_date REGEXP '".self::$DATE_RE."'
-                             AND o.visit_date <= DATE_ADD(i.init_dt, INTERVAL 365 DAY)
-                       ) THEN 1 ELSE 0 END AS retained
-                FROM inits i
-                JOIN demog d ON d.record = i.record
-                WHERE i.init_dt BETWEEN '{$cohortFrom}' AND '{$cohortTo}' AND {$this->ageCond('i.init_dt')}
-            ) t
+            ),
+            visits AS (
+                SELECT p.*,
+                       ROW_NUMBER() OVER (PARTITION BY p.record ORDER BY p.visit_date) AS rn,
+                       COUNT(*) OVER (PARTITION BY p.record) AS n,
+                       LAG(p.next_visit) OVER (PARTITION BY p.record ORDER BY p.visit_date) AS prev_next_visit
+                FROM artp p
+                WHERE p.visit_date REGEXP '".self::$DATE_RE."' AND p.visit_date <= '{$this->to}'
+            ),
+            latest AS (SELECT * FROM visits WHERE rn = n)
+            SELECT
+              COUNT(*) AS cohort,
+              SUM(CASE WHEN l.outcome = '1'
+                        AND NOT (l.n > 1 AND l.prev_next_visit REGEXP '".self::$DATE_RE."'
+                                 AND DATEDIFF(l.visit_date, l.prev_next_visit) >= 28)
+                       THEN 1 ELSE 0 END) AS retained,
+              SUM(CASE WHEN (l.outcome IS NULL OR l.outcome NOT IN ('4', '5', '6'))
+                        AND (
+                          (l.outcome IS NULL OR l.outcome != '1')
+                          OR (l.n > 1 AND l.prev_next_visit REGEXP '".self::$DATE_RE."'
+                              AND DATEDIFF(l.visit_date, l.prev_next_visit) >= 28)
+                          OR (l.next_visit REGEXP '".self::$DATE_RE."'
+                              AND DATE_ADD(l.next_visit, INTERVAL 28 DAY) < '{$this->to}')
+                        )
+                       THEN 1 ELSE 0 END) AS ltfu
+            FROM latest l
+            JOIN reg r ON r.record = l.record
+            JOIN demog d ON d.record = l.record
+            WHERE DATEDIFF(l.visit_date, r.reg_date) >= 365 AND {$this->ageAtPeriodEnd()}
         ", $bind);
 
         return [
             'art_initiated' => ['value' => (int) $init->initiated],
             'art_current' => ['value' => (int) $status->tx_curr],
             'art_retention' => $this->rate((int) $retention->retained, (int) $retention->cohort),
-            'art_ltfu' => ['value' => (int) $status->ltfu],
+            'art_ltfu' => ['value' => (int) $retention->ltfu],
             'art_ti' => ['value' => (int) $ti->ti],
             'art_to' => ['value' => (int) $flow->tout],
             'art_died' => ['value' => (int) $flow->died],

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronDown, CircleAlert, Download, HelpCircle, Info } from 'lucide-vue-next';
+import { AlertTriangle, ChevronDown, CircleAlert, Download, HelpCircle, Info } from 'lucide-vue-next';
 import { computed, ref, watch, type Ref } from 'vue';
 import VueApexCharts from 'vue3-apexcharts';
 import RateMeter from '@/components/data6/RateMeter.vue';
@@ -203,6 +203,10 @@ function downloadRetentionCsv(): void {
                             <div>
                                 <h3 class="text-sm font-bold text-[#244847]">Cohort outcome breakdown</h3>
                                 <p class="mt-0.5 text-[11px] text-[#788681]">All {{ data.cohort_outcomes.total.toLocaleString() }} clients ever in ART care, by current status as of {{ to }}.</p>
+                                <p class="mt-1 flex items-start gap-1 text-[10px] leading-3.5 text-[#a87524]">
+                                    <AlertTriangle class="mt-px size-2.5 shrink-0" />
+                                    This chart's LTFU bucket uses a broader rule than AHP010 — every ART client ever registered, no 12-month-tenure requirement — so the count here won't match the AHP010 indicator.
+                                </p>
                             </div>
                             <div v-if="canDownload" class="flex flex-wrap items-center gap-2 print:hidden">
                                 <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadOutcomeChart('png')"><Download class="size-3" />PNG</button>
@@ -220,8 +224,8 @@ function downloadRetentionCsv(): void {
                     <div class="mt-4 border border-[#d9ded7] bg-white p-5 print:break-inside-avoid">
                         <div class="flex flex-wrap items-center justify-between gap-3">
                             <div>
-                                <h3 class="text-sm font-bold text-[#244847]">12-month retention across recent cohorts</h3>
-                                <p class="mt-0.5 text-[11px] text-[#788681]">Each bar is the group initiated in that month; retention is measured once they reach the 12-month mark.</p>
+                                <h3 class="text-sm font-bold text-[#244847]">12-month retention, last 6 months</h3>
+                                <p class="mt-0.5 text-[11px] text-[#788681]">AHP009's own rule, re-run as of the end of each of the last 6 months — not six different initiation cohorts.</p>
                             </div>
                             <div v-if="data.retention_trend.length && canDownload" class="flex flex-wrap items-center gap-2 print:hidden">
                                 <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadRetentionChart('png')"><Download class="size-3" />PNG</button>
@@ -232,7 +236,7 @@ function downloadRetentionCsv(): void {
                         <VueApexCharts v-if="data.retention_trend.length" ref="retentionChartRef" type="line" height="240" :options="retentionOptions" :series="retentionSeries" />
                         <p v-else class="flex items-start gap-2 py-6 text-xs leading-5 text-[#788681]">
                             <Info class="mt-0.5 size-3.5 shrink-0" />
-                            No initiation cohort has reached its 12-month mark yet as of {{ to }} — HTS-recorded ART initiations in this dataset only begin in January 2026, so the earliest eligible cohort matures in January 2027.
+                            No ART client is 12+ months past their own registration date yet as of {{ to }}.
                         </p>
                         <div v-if="retentionInsight" class="mt-3 border-t border-[#eef0eb] pt-3">
                             <p v-for="(para, i) in insightParagraphs(retentionInsight)" :key="i" class="text-[12.5px] leading-5 text-[#52655f]" :class="i > 0 ? 'mt-2' : ''">{{ para }}</p>
@@ -259,13 +263,13 @@ function downloadRetentionCsv(): void {
                         <div class="mt-3 space-y-3 text-[12px] leading-5 text-[#52655f]">
                             <p>
                                 <strong class="text-[#244847]">1. Cohort outcome breakdown.</strong> Fields: <code class="font-mono text-[11px]">artr_access</code>, <code class="font-mono text-[11px]">art_review_date</code>, <code class="font-mono text-[11px]">art_final_outcome</code>, <code class="font-mono text-[11px]">art_next_review_date</code>.
-                                Every client with an ART registration or any ART follow-up is taken as one cohort, then classified once by their latest visit on or before the selected date: Died/Transferred out/Opted out from <code class="font-mono text-[11px]">art_final_outcome</code>; otherwise Active or LTFU from whether <code class="font-mono text-[11px]">art_next_review_date</code> is more than 28 days overdue — the exact rule AHP008 and AHP010 already use, so those two buckets are built to equal AHP008 and AHP010 for the same date exactly.
+                                Every client with an ART registration or any ART follow-up is taken as one cohort, then classified once by their latest visit on or before the selected date: Died/Transferred out/Opted out from <code class="font-mono text-[11px]">art_final_outcome</code>; otherwise Active or LTFU from whether <code class="font-mono text-[11px]">art_next_review_date</code> is more than 28 days overdue — the exact rule AHP008 already uses, so the Active bucket equals AHP008 for the same date exactly. AHP010 no longer matches this chart's LTFU bucket as of 2026-09: AHP010 now applies a 12-month-tenure eligibility gate plus an added retrospective visit-gap check (see "How this list is built" on AHP009/AHP010's own deep-dive pages), while this chart deliberately keeps the original, broader, ungated rule so it still covers every ART client ever registered.
                                 <strong>Why a cohort snapshot instead of the indicator's own period counts:</strong> AHP008/010/012/013 each count events or status <em>within one reporting period</em> in isolation, so they can't show what share of the whole programme ends up in each outcome, and a client who transferred out before the period even started is invisible to AHP012 that period. A full-cohort, point-in-time snapshot answers "of everyone we've ever put on ART, where do they stand today" — the question a manager actually asks. It also surfaces groups AHP008/010 silently drop from both of their counts: clients "Opted out," and clients whose latest visit doesn't cleanly fit Active or LTFU — most often because no next-appointment date was recorded — grouped honestly as "Other / status unclear" rather than guessed into one bucket or the other.
                             </p>
                             <p>
-                                <strong class="text-[#244847]">2. Retention across recent cohorts.</strong> Fields: <code class="font-mono text-[11px]">hts_art_init</code>, <code class="font-mono text-[11px]">hts_hiv_date</code>, <code class="font-mono text-[11px]">art_review_date</code>, <code class="font-mono text-[11px]">art_final_outcome</code>.
-                                For each of the last 6 calendar months whose 12-month mark has already passed, the cohort is everyone initiated that month (<code class="font-mono text-[11px]">hts_art_init = 'Y'</code>); a client counts as retained if they have an ART visit 9–15 months after initiation and were not recorded Died or Transferred out within the first 12 months — the same formula AHP009 already uses for one month, extended across six.
-                                <strong>Why a trend instead of AHP009's single number:</strong> one retention percentage can't say whether the programme is improving or slipping; six consecutive cohorts side by side can. A single point also hides whether a good/bad number is one unusual month or a genuine pattern.
+                                <strong class="text-[#244847]">2. Retention, last 6 months.</strong> Fields: <code class="font-mono text-[11px]">artr_registration_date</code>, <code class="font-mono text-[11px]">art_review_date</code>, <code class="font-mono text-[11px]">art_next_review_date</code>, <code class="font-mono text-[11px]">art_final_outcome</code>.
+                                This is AHP009's own rule (not a different formula) re-run as of 6 different dates — the last day of each of the last 5 months, plus today. At each date: take the client's latest recorded visit; if it's under 365 days after their <code class="font-mono text-[11px]">artr_registration_date</code>, they're not old enough in the programme yet and are dropped. Of the rest, a client counts as retained if <code class="font-mono text-[11px]">art_final_outcome = 1</code> (Active on treatment) at that visit, <em>and</em> — if they have more than one dated visit — the gap between their second-to-last visit's next-appointment date and their actual latest visit is under 28 days. That second check catches a client who is effectively lost to follow-up even when the outcome field itself was never updated to say so.
+                                <strong>Why a trend instead of AHP009's single number:</strong> one retention percentage can't say whether the programme is improving or slipping; six points side by side can. A single point also hides whether a good/bad number is one unusual month or a genuine pattern.
                             </p>
                             <p>
                                 <strong class="text-[#244847]">3. VL testing coverage.</strong> Fields: <code class="font-mono text-[11px]">art_viral_load</code>, <code class="font-mono text-[11px]">art_vl_collect_date</code>.

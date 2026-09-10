@@ -488,26 +488,71 @@ class ReportService
                           ) l
                           WHERE l.rn = 1 AND (l.outcome IS NULL OR l.outcome NOT IN ('3','4','5','6'))
                             AND l.next_visit REGEXP '{$dateRe}' AND DATE_ADD(l.next_visit, INTERVAL 28 DAY) >= '{$this->to}'"],
-            'art_retention' => ['mode' => 'rate_flag', 'skip_period' => true,
-                'sql' => "SELECT i.record, i.ref_date,
-                                 CASE WHEN EXISTS (
-                                     SELECT 1 FROM ({$art()}) v
-                                     WHERE v.record = i.record AND v.visit_date REGEXP '{$dateRe}'
-                                       AND v.visit_date BETWEEN DATE_ADD(i.ref_date, INTERVAL 270 DAY) AND DATE_ADD(i.ref_date, INTERVAL 455 DAY)
-                                 ) AND NOT EXISTS (
-                                     SELECT 1 FROM ({$art()}) o
-                                     WHERE o.record = i.record AND o.outcome IN ('4','5') AND o.visit_date REGEXP '{$dateRe}'
-                                       AND o.visit_date <= DATE_ADD(i.ref_date, INTERVAL 365 DAY)
-                                 ) THEN 1 ELSE 0 END AS flag
-                          FROM (SELECT record, ref_date FROM ({$inits}) x
-                                WHERE ref_date BETWEEN DATE_SUB('{$this->from}', INTERVAL 12 MONTH) AND DATE_SUB('{$this->to}', INTERVAL 12 MONTH)) i"],
+            // 2026-09 client-supplied methodology - per-record check anchored to
+            // artr_registration_date, evaluated as of `to`. age_at_end (same
+            // flag art_current/art_ltfu use) makes ReportService age-at-`to`
+            // and skip the period filter, without claiming "no date field"
+            // (this indicator has dates - it just isn't period-windowed).
+            // Must stay consistent with the identical query in
+            // IndicatorService::artIndicators().
+            'art_retention' => ['mode' => 'rate_flag', 'age_at_end' => true,
+                'sql' => "
+                    WITH reg AS (
+                        SELECT record, MIN(reg_date) AS reg_date
+                        FROM ({$artr()}) x WHERE reg_date REGEXP '{$dateRe}'
+                        GROUP BY record
+                    ),
+                    visits AS (
+                        SELECT p.*,
+                               ROW_NUMBER() OVER (PARTITION BY p.record ORDER BY p.visit_date) AS rn,
+                               COUNT(*) OVER (PARTITION BY p.record) AS n,
+                               LAG(p.next_visit) OVER (PARTITION BY p.record ORDER BY p.visit_date) AS prev_next_visit
+                        FROM ({$art()}) p
+                        WHERE p.visit_date REGEXP '{$dateRe}' AND p.visit_date <= '{$this->to}'
+                    ),
+                    latest AS (SELECT * FROM visits WHERE rn = n)
+                    SELECT l.record, l.visit_date AS ref_date,
+                           CASE WHEN l.outcome = '1'
+                                 AND NOT (l.n > 1 AND l.prev_next_visit REGEXP '{$dateRe}'
+                                          AND DATEDIFF(l.visit_date, l.prev_next_visit) >= 28)
+                                THEN 1 ELSE 0 END AS flag
+                    FROM latest l
+                    JOIN reg r ON r.record = l.record
+                    WHERE DATEDIFF(l.visit_date, r.reg_date) >= 365"],
+            // 2026-09 client-supplied methodology - same eligible cohort as
+            // art_retention (12+ months since artr_registration_date), LTFU
+            // if outcome isn't Active, OR the retrospective (n-1)-vs-n gap
+            // check flags them, OR they're currently overdue vs `to`. Must
+            // stay consistent with the identical query in
+            // IndicatorService::artIndicators().
             'art_ltfu' => ['mode' => 'distinct', 'age_at_end' => true,
-                'sql' => "SELECT record, visit_date AS ref_date FROM (
-                              SELECT p.*, ROW_NUMBER() OVER (PARTITION BY p.record ORDER BY p.visit_date DESC) AS rn
-                              FROM ({$art()}) p WHERE p.visit_date REGEXP '{$dateRe}' AND p.visit_date <= '{$this->to}'
-                          ) l
-                          WHERE l.rn = 1 AND (l.outcome IS NULL OR l.outcome NOT IN ('4','5'))
-                            AND l.next_visit REGEXP '{$dateRe}' AND DATE_ADD(l.next_visit, INTERVAL 28 DAY) < '{$this->to}'"],
+                'sql' => "
+                    WITH reg AS (
+                        SELECT record, MIN(reg_date) AS reg_date
+                        FROM ({$artr()}) x WHERE reg_date REGEXP '{$dateRe}'
+                        GROUP BY record
+                    ),
+                    visits AS (
+                        SELECT p.*,
+                               ROW_NUMBER() OVER (PARTITION BY p.record ORDER BY p.visit_date) AS rn,
+                               COUNT(*) OVER (PARTITION BY p.record) AS n,
+                               LAG(p.next_visit) OVER (PARTITION BY p.record ORDER BY p.visit_date) AS prev_next_visit
+                        FROM ({$art()}) p
+                        WHERE p.visit_date REGEXP '{$dateRe}' AND p.visit_date <= '{$this->to}'
+                    ),
+                    latest AS (SELECT * FROM visits WHERE rn = n)
+                    SELECT l.record, l.visit_date AS ref_date
+                    FROM latest l
+                    JOIN reg r ON r.record = l.record
+                    WHERE DATEDIFF(l.visit_date, r.reg_date) >= 365
+                      AND (l.outcome IS NULL OR l.outcome NOT IN ('4', '5', '6'))
+                      AND (
+                        (l.outcome IS NULL OR l.outcome != '1')
+                        OR (l.n > 1 AND l.prev_next_visit REGEXP '{$dateRe}'
+                            AND DATEDIFF(l.visit_date, l.prev_next_visit) >= 28)
+                        OR (l.next_visit REGEXP '{$dateRe}'
+                            AND DATE_ADD(l.next_visit, INTERVAL 28 DAY) < '{$this->to}')
+                      )"],
             'art_ti' => ['mode' => 'distinct',
                 'sql' => "SELECT record, reg_date AS ref_date FROM ({$artr()}) p WHERE p.referred = '1'"],
             'art_to' => ['mode' => 'distinct',
