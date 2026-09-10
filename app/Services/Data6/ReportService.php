@@ -114,6 +114,7 @@ class ReportService
                 }
                 $by['facility_sex'] = $this->dimSexPairBuckets($num, $den, 'facility');
                 $by['district_sex'] = $this->dimSexPairBuckets($num, $den, 'district');
+                $by['facility_age'] = $this->dimAgePairBuckets($num, $den, 'facility');
             }
 
             return $base + ['total' => $this->pairBucket($num, $den), 'by' => $by];
@@ -141,6 +142,7 @@ class ReportService
             if ($spec['service_point'] ?? false) {
                 $by['service_point_sex'] = $this->dimBySex($rows, 'instrument', $agg);
             }
+            $by['facility_age'] = $this->dimByAgeBand($rows, 'facility', $agg);
         }
 
         return $base + ['total' => $agg($rows), 'by' => $by];
@@ -295,6 +297,52 @@ class ReportService
             foreach (['Male' => 'male', 'Female' => 'female'] as $sexLabel => $key) {
                 $n = array_filter($num, fn ($r) => $r[$dim] === $label && $r['sex'] === $sexLabel);
                 $d = array_filter($den, fn ($r) => $r[$dim] === $label && $r['sex'] === $sexLabel);
+                $bucket[$key] = $this->pairBucket($n, $d)['value'];
+            }
+            $out[] = $bucket;
+        }
+
+        return $out;
+    }
+
+    /**
+     * Same shape as dimBySex, split by age band (10-14 / 15-19) instead of
+     * sex. Rows are already adolescent-filtered (10-19) by detailRows()'s
+     * ageCond(), so `age_band` can only ever be '10-14' or '15-19' - there
+     * is no third bucket to silently drop here.
+     */
+    private function dimByAgeBand(array $rows, string $dim, callable $agg): array
+    {
+        $groups = [];
+        foreach ($rows as $row) {
+            $groups[$row[$dim] ?? 'Unknown'][$row['age_band'] ?? 'Unknown'][] = $row;
+        }
+        ksort($groups);
+
+        $out = [];
+        foreach ($groups as $label => $byAge) {
+            $out[] = [
+                'label' => (string) $label,
+                'a10_14' => $agg($byAge['10-14'] ?? [])['value'] ?? 0,
+                'a15_19' => $agg($byAge['15-19'] ?? [])['value'] ?? 0,
+            ];
+        }
+
+        return $out;
+    }
+
+    /** Same as dimByAgeBand, for rate indicators built from a numerator/denominator pair. */
+    private function dimAgePairBuckets(array $num, array $den, string $dim): array
+    {
+        $labels = array_unique(array_column($den, $dim));
+        sort($labels);
+
+        $out = [];
+        foreach ($labels as $label) {
+            $bucket = ['label' => (string) $label];
+            foreach (['10-14' => 'a10_14', '15-19' => 'a15_19'] as $ageLabel => $key) {
+                $n = array_filter($num, fn ($r) => $r[$dim] === $label && $r['age_band'] === $ageLabel);
+                $d = array_filter($den, fn ($r) => $r[$dim] === $label && $r['age_band'] === $ageLabel);
                 $bucket[$key] = $this->pairBucket($n, $d)['value'];
             }
             $out[] = $bucket;

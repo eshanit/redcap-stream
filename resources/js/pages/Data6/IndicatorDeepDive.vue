@@ -14,12 +14,14 @@ const { canDownload, canDownloadPdf } = useTier();
 
 interface Bucket { label: string; value: number | null; numerator?: number; denominator?: number; cumulative?: number; }
 interface SexBucket { label: string; male: number | null; female: number | null; }
+interface AgeBucket { label: string; a10_14: number | null; a15_19: number | null; }
 interface DeepDive {
     code: string; key: string; label: string; group: string; level: string;
     type: 'count' | 'percent' | 'sum'; status: string; note: string | null; no_period: boolean;
     total: { value: number | null; numerator?: number; denominator?: number } | null;
     by: Record<string, Bucket[]> & {
         month_sex?: SexBucket[]; facility_sex?: SexBucket[]; district_sex?: SexBucket[]; service_point_sex?: SexBucket[];
+        facility_age?: AgeBucket[];
     };
 }
 interface Meta {
@@ -266,12 +268,20 @@ function downloadBucketCsv(items: Bucket[], dimLabel: string, suffix: string): v
 function downloadSexBucketCsv(items: SexBucket[], dimLabel: string, suffix: string): void {
     downloadCsv([dimLabel, 'Male', 'Female'], items.map((b) => [b.label, b.male, b.female]), csvFilename(suffix));
 }
+function downloadAgeBucketCsv(items: AgeBucket[], dimLabel: string, suffix: string): void {
+    downloadCsv([dimLabel, '10-14', '15-19'], items.map((b) => [b.label, b.a10_14, b.a15_19]), csvFilename(suffix));
+}
 
 // ---- sex-split charts (monthly trend, facility, district, service point) --
 const seriesOrange = '#eb6834';
+// Distinct from the blue/orange sex-split pair above, so a reader never
+// mistakes an age-band series for a sex series on the same page.
+const seriesTeal = '#1f7a73';
+const seriesGold = '#c58a32';
 const hasSexDim = computed(() => props.meta.disaggregation.includes('sex'));
 const monthBySex = computed(() => dive.value?.by?.month_sex ?? []);
 const facilitySex = computed(() => dive.value?.by?.facility_sex ?? []);
+const facilityAge = computed(() => dive.value?.by?.facility_age ?? []);
 const districtSex = computed(() => dive.value?.by?.district_sex ?? []);
 const servicePointSex = computed(() => dive.value?.by?.service_point_sex ?? []);
 const showSexTrend = computed(() => hasSexDim.value && monthBySex.value.length > 0);
@@ -315,6 +325,10 @@ function downloadFacilityChart(format: 'png' | 'jpg'): Promise<void> {
 function downloadFacilitySexChart(format: 'png' | 'jpg'): Promise<void> {
     return downloadChartImage(facilitySexChartRef, 'facility_by_sex', format);
 }
+const facilityAgeChartRef = ref<ApexChartHandle | null>(null);
+function downloadFacilityAgeChart(format: 'png' | 'jpg'): Promise<void> {
+    return downloadChartImage(facilityAgeChartRef, 'facility_by_age', format);
+}
 function downloadDistrictChart(format: 'png' | 'jpg'): Promise<void> {
     return downloadChartImage(districtChartRef, 'district', format);
 }
@@ -345,6 +359,25 @@ const trendInsight = computed(() => {
 const sexTrendInsight = computed(() => (monthBySex.value.length < 2 ? '' : describeSexSplit(monthBySex.value, true, { ...insightUnit.value, dimension: 'month' })));
 const facilityInsight = computed(() => describeCategorical(buckets('facility'), { ...insightUnit.value, dimension: 'facility' }));
 const facilitySexInsight = computed(() => (facilitySex.value.length < 2 ? '' : describeSexSplit(facilitySex.value, false, { ...insightUnit.value, dimension: 'facility' })));
+const facilityAgeInsight = computed(() => {
+    const clean = facilityAge.value.filter((b) => b.a10_14 !== null || b.a15_19 !== null);
+    if (clean.length < 2) return '';
+    const y1014 = clean.map((b) => b.a10_14 ?? 0);
+    const y1519 = clean.map((b) => b.a15_19 ?? 0);
+    if (isPercent.value) {
+        const mean1014 = Math.round((y1014.reduce((a, b) => a + b, 0) / y1014.length) * 10) / 10;
+        const mean1519 = Math.round((y1519.reduce((a, b) => a + b, 0) / y1519.length) * 10) / 10;
+
+        return `Averaged across facilities, the rate is ${mean1519}% for 15–19 year-olds and ${mean1014}% for 10–14 year-olds.`;
+    }
+    const total1014 = y1014.reduce((a, b) => a + b, 0);
+    const total1519 = y1519.reduce((a, b) => a + b, 0);
+    const grand = total1014 + total1519;
+    if (grand === 0) return '';
+    const share1519 = Math.round((total1519 / grand) * 100);
+
+    return `15–19 year-olds account for ${share1519}% of the total (${total1519.toLocaleString()} aged 15–19, ${total1014.toLocaleString()} aged 10–14).`;
+});
 const districtInsight = computed(() => describeCategorical(buckets('district'), { ...insightUnit.value, dimension: 'district' }));
 const districtSexInsight = computed(() => (districtSex.value.length < 2 ? '' : describeSexSplit(districtSex.value, false, { ...insightUnit.value, dimension: 'district' })));
 const servicePointInsight = computed(() => describeCategorical(buckets('service_point'), { ...insightUnit.value, dimension: 'service point' }));
@@ -384,6 +417,24 @@ function hbarSexOptions(items: SexBucket[]) {
 const sexSeries = (items: SexBucket[]) => [
     { name: 'Male', data: items.map((b) => b.male) },
     { name: 'Female', data: items.map((b) => b.female) },
+];
+
+function hbarAgeOptions(items: AgeBucket[]) {
+    return {
+        chart: { type: 'bar', toolbar: { show: false }, fontFamily: 'system-ui, sans-serif', animations: { enabled: false } },
+        colors: [seriesTeal, seriesGold],
+        plotOptions: { bar: { horizontal: true, barHeight: '70%', borderRadius: 4, borderRadiusApplication: 'end' } },
+        dataLabels: { enabled: false },
+        grid: { borderColor: gridHairline, yaxis: { lines: { show: false } } },
+        xaxis: { categories: items.map((b) => b.label), labels: { style: { colors: inkMuted, fontSize: '11px' } }, axisBorder: { color: '#c3c2b7' }, axisTicks: { show: false }, max: isPercent.value ? 100 : undefined },
+        yaxis: { labels: { style: { colors: inkSecondary, fontSize: '12px' } } },
+        legend: { show: true, position: 'top', horizontalAlign: 'left', fontSize: '12px', labels: { colors: '#52514e' }, markers: { size: 6 } },
+        tooltip: { shared: true, intersect: false, y: { formatter: (v: number | null) => (v === null ? '—' : isPercent.value ? `${v}%` : v.toLocaleString()) } },
+    };
+}
+const ageSeries = (items: AgeBucket[]) => [
+    { name: '10–14', data: items.map((b) => b.a10_14) },
+    { name: '15–19', data: items.map((b) => b.a15_19) },
 ];
 
 const statusBadges: Record<string, { label: string; cls: string }> = {
@@ -556,6 +607,22 @@ const statusBadges: Record<string, { label: string; cls: string }> = {
                                 <div v-if="facilitySexInsight" class="mt-3 border-t border-[#eef0eb] pt-3">
                                     <p class="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[#82908a]"><Lightbulb class="size-3 text-[#e2644b]" />Insights</p>
                                     <p class="text-[12.5px] leading-5 text-[#52655f]">{{ facilitySexInsight }}</p>
+                                </div>
+                            </div>
+                            <div v-if="facilityAge.length" class="border border-[#d9ded7] bg-[#fcfcfb] p-5 print:break-inside-avoid">
+                                <div class="flex flex-wrap items-center justify-between gap-3">
+                                    <h2 class="text-sm font-bold text-[#244847]">By facility, by age band</h2>
+                                    <div v-if="canDownload" class="flex flex-wrap items-center gap-2 print:hidden">
+                                        <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadFacilityAgeChart('png')"><Download class="size-3" />PNG</button>
+                                        <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadFacilityAgeChart('jpg')"><Download class="size-3" />JPG</button>
+                                        <button class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white" @click="downloadAgeBucketCsv(facilityAge, 'Facility', 'facility_by_age')"><Download class="size-3" />CSV</button>
+                                    </div>
+                                </div>
+                                <VueApexCharts ref="facilityAgeChartRef" type="bar" :height="Math.max(180, facilityAge.length * 34 + 60)"
+                                    :options="hbarAgeOptions(facilityAge)" :series="ageSeries(facilityAge)" />
+                                <div v-if="facilityAgeInsight" class="mt-3 border-t border-[#eef0eb] pt-3">
+                                    <p class="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[#82908a]"><Lightbulb class="size-3 text-[#e2644b]" />Insights</p>
+                                    <p class="text-[12.5px] leading-5 text-[#52655f]">{{ facilityAgeInsight }}</p>
                                 </div>
                             </div>
                         </div>
