@@ -291,7 +291,7 @@ function downloadPdf(): void {
                     <!-- Facility / district grid -->
                     <section class="mt-9">
                         <div class="mb-2 flex items-center justify-between">
-                            <h2 class="font-serif text-xl text-[#173b3b] print:break-after-avoid">Indicator × {{ detailDim }}</h2>
+                            <h2 class="font-serif text-xl text-[#173b3b] print:break-after-avoid">Indicator × {{ detailDim }}<span v-if="filterLabel" class="text-base font-sans font-normal text-[#788681]"> ({{ filterLabel }})</span></h2>
                             <div class="flex gap-1 rounded-full border border-[#cbd3cd] bg-white p-1 print:hidden">
                                 <button v-for="dim in (['facility', 'district'] as const)" :key="dim"
                                     class="rounded-full px-3 py-1.5 text-xs font-bold capitalize transition"
