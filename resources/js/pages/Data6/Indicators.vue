@@ -1,18 +1,23 @@
 <script setup lang="ts">
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Head } from '@inertiajs/vue3';
+import { CircleAlert, Download, FileSpreadsheet, Lightbulb, Lock, RefreshCw } from 'lucide-vue-next';
 import { Link } from '@inertiajs/vue3';
-import { AlertTriangle, ArrowRight, CircleAlert, Download, FileSpreadsheet, Info, Lightbulb, Lock, RefreshCw } from 'lucide-vue-next';
 import { computed, onMounted, ref } from 'vue';
 import VueApexCharts from 'vue3-apexcharts';
 import { type BreadcrumbItem } from '@/types';
 import { useTier } from '@/composables/useTier';
+import IndicatorCard from './IndicatorCard.vue';
 
 const { isPro, canDownload, canDownloadPdf } = useTier();
 
 interface IndicatorMeta {
     id: number;
     code?: string;
+    /** Set only on an interim ("...a") proxy: the code of the real
+     *  indicator it stands in for, e.g. AHP020a -> AHP020. Drives the
+     *  side-by-side pairing on this page - see displayItems below. */
+    pairs_with?: string | null;
     key: string;
     group: string;
     type: 'count' | 'percent' | 'sum';
@@ -118,11 +123,57 @@ function fmt(n: number | null | undefined): string {
     return n.toLocaleString();
 }
 
-const statusBadges: Record<string, { label: string; cls: string }> = {
-    provisional: { label: 'Definition pending', cls: 'bg-[#e7eef4] text-[#31577a]' },
-    proxy: { label: 'Proxy', cls: 'bg-[#f7efdd] text-[#8f6115]' },
-    blocked: { label: 'Not computable', cls: 'bg-[#f0efec] text-[#898781]' },
-};
+// ---- pairing: an "...a" indicator shown side by side with the real one it's
+// linked to via `pairs_with`, so the two are never confused for one card.
+// Two kinds share this mechanism, told apart by the linked indicator's own
+// `status` (see variantFor below):
+//  - interim proxy (status proxy/blocked, e.g. AHP020a -> AHP020): a
+//    temporary pre-go-live stand-in - amber, dashed styling in IndicatorCard.
+//  - supplementary (status active, e.g. AHP004a -> AHP004): a permanent,
+//    equally-valid alternate definition shown alongside the official one,
+//    not a stand-in - blue, solid styling in IndicatorCard.
+type DisplayItem =
+    | { type: 'pair'; real: IndicatorMeta; linked: IndicatorMeta }
+    | { type: 'single'; meta: IndicatorMeta };
+
+type PairVariant = 'proxy' | 'supplementary';
+function variantFor(linked: IndicatorMeta): PairVariant {
+    return linked.status === 'proxy' || linked.status === 'blocked' ? 'proxy' : 'supplementary';
+}
+function pairHeaderFor(variant: PairVariant): string {
+    return variant === 'proxy' ? 'Official figure vs. interim proxy — side by side' : 'Official figure vs. supplementary definition — side by side';
+}
+
+const byCode = computed(() => new Map(props.registry.indicators.map((m) => [m.code, m])));
+const linkedForReal = computed(() => {
+    const map = new Map<string, IndicatorMeta>();
+    for (const m of props.registry.indicators) {
+        if (m.pairs_with) map.set(m.pairs_with, m);
+    }
+    return map;
+});
+
+const displayItems = computed<DisplayItem[]>(() => {
+    const items: DisplayItem[] = [];
+    const consumed = new Set<string>();
+    for (const meta of indicatorsInGroup.value) {
+        if (!meta.code || consumed.has(meta.code)) continue;
+        const real = meta.pairs_with ? byCode.value.get(meta.pairs_with) : undefined;
+        const linked = linkedForReal.value.get(meta.code);
+        if (real) {
+            items.push({ type: 'pair', real, linked: meta });
+            consumed.add(meta.code);
+            consumed.add(real.code!);
+        } else if (linked) {
+            items.push({ type: 'pair', real: meta, linked });
+            consumed.add(meta.code);
+            consumed.add(linked.code!);
+        } else {
+            items.push({ type: 'single', meta });
+        }
+    }
+    return items;
+});
 
 // ---- charts (dataviz reference palette; slots 1-2, documented order) ----
 const inkMuted = '#898781';
@@ -315,55 +366,23 @@ function downloadPdf(): void {
 
                     <!-- Indicator cards -->
                     <section class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                        <article v-for="meta in indicatorsInGroup" :key="meta.key"
-                            class="flex flex-col justify-between border border-[#d9ded7] bg-[#fcfcfb] p-4 print:break-inside-avoid"
-                            :class="meta.status === 'blocked' ? 'opacity-70' : ''">
-                            <div>
-                                <div class="flex items-start justify-between gap-2">
-                                    <h3 class="text-[13px] font-bold leading-snug text-[#244847]">
-                                        <span class="mr-1.5 font-mono text-[10px] text-[#898781]">{{ meta.code ?? meta.id }}</span>{{ meta.label }}
-                                    </h3>
-                                    <span v-if="statusBadges[meta.status]"
-                                        class="shrink-0 rounded-full px-2 py-0.5 text-[9.5px] font-bold uppercase tracking-wide"
-                                        :class="statusBadges[meta.status].cls">{{ statusBadges[meta.status].label }}</span>
+                        <template v-for="item in displayItems" :key="item.type === 'pair' ? item.real.code : item.meta.code">
+                            <!-- Paired indicator: the official figure and its linked interim
+                                 proxy or supplementary definition, shown side by side under
+                                 one shared header so they read as a comparison, not two
+                                 unrelated cards. -->
+                            <div v-if="item.type === 'pair'" class="col-span-full overflow-hidden border-2 border-[#173b3b] print:break-inside-avoid">
+                                <div class="flex flex-wrap items-center justify-between gap-1 bg-[#173b3b] px-4 py-1.5">
+                                    <span class="text-[11px] font-bold uppercase tracking-wide text-white">{{ item.real.label }}</span>
+                                    <span class="text-[10px] font-semibold text-[#a9c7c2]">{{ pairHeaderFor(variantFor(item.linked)) }}</span>
                                 </div>
-                                <div class="mt-3 flex items-baseline gap-2">
-                                    <span class="text-3xl font-semibold text-[#0b2c2c]">
-                                        {{ meta.type === 'percent' && valueFor(meta.key)?.value !== null && valueFor(meta.key) ? `${fmt(valueFor(meta.key)?.value)}%` : fmt(valueFor(meta.key)?.value) }}
-                                    </span>
-                                    <span v-if="meta.type === 'percent' && valueFor(meta.key)?.denominator !== undefined"
-                                        class="text-xs text-[#788681]" style="font-variant-numeric: tabular-nums">
-                                        {{ fmt(valueFor(meta.key)?.numerator) }} / {{ fmt(valueFor(meta.key)?.denominator) }}
-                                    </span>
-                                    <span v-if="valueFor(meta.key)?.extra?.bba !== undefined" class="text-xs text-[#788681]">
-                                        incl. {{ valueFor(meta.key)?.extra?.bba }} BBA
-                                    </span>
+                                <div class="grid divide-y divide-[#d9ded7] sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+                                    <IndicatorCard :meta="item.real" :value="valueFor(item.real.key)" :method="registry.methods?.[item.real.key]" variant="default" />
+                                    <IndicatorCard :meta="item.linked" :value="valueFor(item.linked.key)" :method="registry.methods?.[item.linked.key]" :variant="variantFor(item.linked)" />
                                 </div>
                             </div>
-                            <div class="mt-3 space-y-1 border-t border-[#eef0eb] pt-2">
-                                <p class="flex items-start gap-1.5 text-[11px] leading-4 text-[#7d8b85]">
-                                    <Info class="mt-0.5 size-3 shrink-0" />{{ meta.definition }}
-                                </p>
-                                <p v-if="meta.note" class="flex items-start gap-1.5 text-[11px] leading-4 text-[#a87524]">
-                                    <AlertTriangle class="mt-0.5 size-3 shrink-0" />{{ meta.note }}
-                                </p>
-                                <p v-if="meta.no_period" class="flex items-start gap-1.5 text-[11px] leading-4 text-[#7d8b85]">
-                                    <AlertTriangle class="mt-0.5 size-3 shrink-0 text-[#a87524]" />No date field on this instrument — value is all-time, the period filter does not apply.
-                                </p>
-                                <details v-if="registry.methods?.[meta.key]" class="pt-0.5">
-                                    <summary class="cursor-pointer text-[11px] font-bold text-[#3c605b] underline decoration-[#cbd3cd] decoration-dotted underline-offset-2 hover:decoration-[#e2644b]">
-                                        How we calculated this
-                                    </summary>
-                                    <p class="mt-1 border-l-2 border-[#e2644b] pl-2 text-[11px] leading-4.5 text-[#52655f]">{{ registry.methods[meta.key] }}</p>
-                                    <p v-if="meta.variables" class="mt-1 pl-2 font-mono text-[10px] text-[#7b8984]">{{ meta.variables }}</p>
-                                </details>
-                                <Link v-if="meta.code && meta.status !== 'blocked'" :href="`/data6/indicators/${meta.code}`"
-                                    class="group mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-[#173b3b] px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-[#285655]">
-                                    Deeper analysis
-                                    <ArrowRight class="size-3 transition group-hover:translate-x-0.5" />
-                                </Link>
-                            </div>
-                        </article>
+                            <IndicatorCard v-else :meta="item.meta" :value="valueFor(item.meta.key)" :method="registry.methods?.[item.meta.key]" />
+                        </template>
                     </section>
                 </template>
             </div>

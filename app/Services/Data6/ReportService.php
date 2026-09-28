@@ -423,7 +423,7 @@ class ReportService
         $artr = fn () => $this->pivotSql(self::$P_ART, ['referred' => 'artr_referred', 'reg_date' => 'artr_registration_date']);
         $ancr = fn () => $this->pivotSql(self::$P_FCH, ['reg_date' => 'ancr_date', 'first_booking' => 'ancr_first_booking', 'hiv_prior' => 'ancr_hiv_prior', 'contact_no' => 'ancr_contact_number']);
         $anc = fn () => $this->pivotSql(self::$P_FCH, ['visit_date' => 'anc_date', 'contact_no' => 'anc_contact_number']);
-        $pncr = fn () => $this->pivotSql(self::$P_FCH, ['reg_date' => 'pncr_date', 'place' => 'pncr_place_of_delivery', 'hiv_post' => 'pncr_hiv_status_post', 'on_art' => 'pncr_hiv_status_art', 'baby_dob' => 'pncr_date_of_birth']);
+        $pncr = fn () => $this->pivotSql(self::$P_FCH, ['reg_date' => 'pncr_date', 'place' => 'pncr_place_of_delivery', 'baby_dob' => 'pncr_date_of_birth']);
         $pncm = fn () => $this->pivotSql(self::$P_FCH, ['visit_date' => 'pncm_visit_date', 'follow_up' => 'pncm_mother_follow_up', 'hiv_tested' => 'pncm_hiv_tested']);
         $pncb = fn () => $this->pivotSql(self::$P_FCH, ['visit_date' => 'pncb_visit_date', 'infant_status' => 'pncb_infant_follow_ups']);
         $fp = fn () => $this->pivotSql(self::$P_FCH, ['visit_date' => 'fp_date', 'category' => 'fp_client_category']);
@@ -431,6 +431,13 @@ class ReportService
         $mh = fn () => $this->pivotSql(self::$P_ALL, ['screened' => 'mh_screening_tools', 'result' => 'mh_screening_results', 'managed' => 'mh_management_outcome', 'substance' => 'mh_substance_identified']);
         $sti = fn () => $this->pivotSql(self::$P_ALL, ['visit_date' => 'sti_visit_date', 'alt_date' => 'sti_date', 'treated' => 'sti_patient_treated']);
         $pls = fn () => $this->pivotSql(self::$P_ALL, ['session_date' => 'pls_date', 'conducted' => 'pls_session_conducted', 'sessions' => 'pls_number', 'reached' => 'pls_ado_number', 'support' => 'pls_support_conducted']);
+        $ld = fn () => $this->pivotSql(self::$P_FCH, [
+            'visit_date' => 'ld_date', 'outcome' => 'ld_preg_outcome', 'place' => 'ld_delivery_place_2',
+            'mother_die' => 'ld_mother_die', 'newborn_die' => 'ld_newborn_die', 'pnc' => 'ld_postnatal_care',
+            'hiv_status' => 'ld_hiv_status', 'breastfeeding' => 'ld_breastfeeding', 'hiv_test_bf' => 'ld_hiv_test_bf',
+            'recieve_art' => 'ld_recieve_art',
+        ]);
+        $ldCodes = config('data6_indicators.ld.codes');
 
         $htsTested = "SELECT record, test_date AS ref_date FROM ({$hts()}) p WHERE p.tested = '1'";
         // HTS is a shared instrument (queried across all 3 projects), so the
@@ -594,6 +601,18 @@ class ReportService
             'births_home' => ['mode' => 'row',
                 'sql' => "SELECT p.record, p.reg_date AS ref_date FROM ({$pncr()}) p WHERE p.place IN ('2','3')"],
             'stillbirths' => null,
+            'ld_births_inst' => ['mode' => 'row',
+                'sql' => "SELECT p.record, p.visit_date AS ref_date FROM ({$ld()}) p WHERE p.outcome = '{$ldCodes['preg_outcome_live']}' AND p.place = '{$ldCodes['place_institutional']}'"],
+            'ld_births_home' => ['mode' => 'row',
+                'sql' => "SELECT p.record, p.visit_date AS ref_date FROM ({$ld()}) p WHERE p.place = '{$ldCodes['place_home']}'"],
+            'ld_stillbirths' => ['mode' => 'row',
+                'sql' => "SELECT p.record, p.visit_date AS ref_date FROM ({$ld()}) p WHERE p.outcome = '{$ldCodes['preg_outcome_stillbirth']}' AND p.place = '{$ldCodes['place_institutional']}'"],
+            'ld_maternal_deaths' => ['mode' => 'distinct',
+                'sql' => "SELECT record, visit_date AS ref_date FROM ({$ld()}) p WHERE p.mother_die = '{$ldCodes['mother_die_yes']}'"],
+            'ld_neonatal_deaths' => ['mode' => 'row',
+                'sql' => "SELECT p.record, p.visit_date AS ref_date FROM ({$ld()}) p WHERE p.newborn_die = '{$ldCodes['newborn_die_yes']}'"],
+            'ld_pnc_72h' => ['mode' => 'rate_flag',
+                'sql' => "SELECT p.record, p.visit_date AS ref_date, CASE WHEN p.pnc = '{$ldCodes['postnatal_care_yes']}' THEN 1 ELSE 0 END AS flag FROM ({$ld()}) p"],
             'neonatal_deaths' => ['mode' => 'row',
                 'sql' => "SELECT b.record, b.visit_date AS ref_date
                           FROM ({$pncb()}) b
@@ -614,14 +633,14 @@ class ReportService
                 'sql' => "SELECT record, reg_date AS ref_date, CASE WHEN hiv_prior IN ('0','1') THEN 1 ELSE 0 END AS flag
                           FROM ({$ancr()}) p WHERE p.first_booking = '1'"],
             'bf_retest' => ['mode' => 'rate_pair',
-                'num' => "SELECT m.record, m.visit_date AS ref_date FROM ({$pncm()}) m
-                          JOIN (SELECT DISTINCT record FROM ({$pncr()}) r WHERE r.hiv_post = 'N') n ON n.record = m.record
-                          WHERE m.hiv_tested = '1'",
-                'den' => "SELECT m.record, m.visit_date AS ref_date FROM ({$pncm()}) m
-                          JOIN (SELECT DISTINCT record FROM ({$pncr()}) r WHERE r.hiv_post = 'N') n ON n.record = m.record"],
+                'num' => "SELECT p.record, p.visit_date AS ref_date FROM ({$ld()}) p
+                          WHERE p.hiv_status = '{$ldCodes['hiv_status_negative']}' AND p.breastfeeding = '{$ldCodes['breastfeeding_yes']}'
+                            AND p.hiv_test_bf = '{$ldCodes['hiv_test_bf_yes']}'",
+                'den' => "SELECT p.record, p.visit_date AS ref_date FROM ({$ld()}) p
+                          WHERE p.hiv_status = '{$ldCodes['hiv_status_negative']}' AND p.breastfeeding = '{$ldCodes['breastfeeding_yes']}'"],
             'art_at_delivery' => ['mode' => 'rate_flag',
-                'sql' => "SELECT p.record, p.reg_date AS ref_date, CASE WHEN p.on_art = '1' THEN 1 ELSE 0 END AS flag
-                          FROM ({$pncr()}) p WHERE p.hiv_post = 'P'"],
+                'sql' => "SELECT p.record, p.visit_date AS ref_date, CASE WHEN p.recieve_art = '{$ldCodes['recieve_art_yes']}' THEN 1 ELSE 0 END AS flag
+                          FROM ({$ld()}) p WHERE p.hiv_status = '{$ldCodes['hiv_status_positive']}'"],
 
             'fp_new' => ['mode' => 'distinct',
                 'sql' => "SELECT record, visit_date AS ref_date FROM ({$fp()}) p WHERE p.category = 'N'"],

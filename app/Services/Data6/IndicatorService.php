@@ -337,13 +337,19 @@ class IndicatorService
         $anc = $this->pivotSql(self::$P_FCH, ['visit_date' => 'anc_date', 'contact_no' => 'anc_contact_number']);
         $pncr = $this->pivotSql(self::$P_FCH, [
             'reg_date' => 'pncr_date', 'place' => 'pncr_place_of_delivery',
-            'hiv_post' => 'pncr_hiv_status_post', 'on_art' => 'pncr_hiv_status_art',
             'baby_dob' => 'pncr_date_of_birth',
         ]);
         $pncm = $this->pivotSql(self::$P_FCH, [
             'visit_date' => 'pncm_visit_date', 'follow_up' => 'pncm_mother_follow_up', 'hiv_tested' => 'pncm_hiv_tested',
         ]);
         $pncb = $this->pivotSql(self::$P_FCH, ['visit_date' => 'pncb_visit_date', 'infant_status' => 'pncb_infant_follow_ups']);
+        $ld = $this->pivotSql(self::$P_FCH, [
+            'visit_date' => 'ld_date', 'outcome' => 'ld_preg_outcome', 'place' => 'ld_delivery_place_2',
+            'mother_die' => 'ld_mother_die', 'newborn_die' => 'ld_newborn_die', 'pnc' => 'ld_postnatal_care',
+            'hiv_status' => 'ld_hiv_status', 'breastfeeding' => 'ld_breastfeeding', 'hiv_test_bf' => 'ld_hiv_test_bf',
+            'recieve_art' => 'ld_recieve_art',
+        ]);
+        $ldCodes = config('data6_indicators.ld.codes');
 
         $ancRow = $this->one("
             WITH demog AS ({$demog}), ancrp AS ({$ancr})
@@ -373,9 +379,7 @@ class IndicatorService
               COUNT(CASE WHEN p.place IN ('2','3') AND {$this->periodCond('p.reg_date')} AND {$this->ageCond('p.reg_date')} THEN 1 END) AS non_institutional,
               COUNT(CASE WHEN p.place = '3' AND {$this->periodCond('p.reg_date')} AND {$this->ageCond('p.reg_date')} THEN 1 END) AS bba,
               COUNT(CASE WHEN {$this->periodCond('p.reg_date')} AND {$this->ageCond('p.reg_date')} AND c.max_contact >= 8 THEN 1 END) AS anc8,
-              COUNT(CASE WHEN {$this->periodCond('p.reg_date')} AND {$this->ageCond('p.reg_date')} AND pn.record IS NOT NULL THEN 1 END) AS pnc_within_72,
-              COUNT(CASE WHEN p.hiv_post = 'P' AND {$this->periodCond('p.reg_date')} AND {$this->ageCond('p.reg_date')} THEN 1 END) AS hiv_pos_deliveries,
-              COUNT(CASE WHEN p.hiv_post = 'P' AND p.on_art = '1' AND {$this->periodCond('p.reg_date')} AND {$this->ageCond('p.reg_date')} THEN 1 END) AS on_art_delivery
+              COUNT(CASE WHEN {$this->periodCond('p.reg_date')} AND {$this->ageCond('p.reg_date')} AND pn.record IS NOT NULL THEN 1 END) AS pnc_within_72
             FROM pncrp p
             JOIN demog d ON d.record = p.record
             LEFT JOIN contacts c ON c.record = p.record
@@ -396,15 +400,23 @@ class IndicatorService
                   AND DATEDIFF(b.visit_date, bd.baby_dob) BETWEEN 0 AND 7) AS neonatal_deaths
         ", $bind);
 
-        $retest = $this->one("
-            WITH demog AS ({$demog}), pncmp AS ({$pncm}),
-            negmums AS (SELECT DISTINCT record FROM ({$pncr}) r WHERE r.hiv_post = 'N')
+        $ldRow = $this->one("
+            WITH demog AS ({$demog}), ldp AS ({$ld})
             SELECT
-              COUNT(DISTINCT CASE WHEN {$this->periodCond('m.visit_date')} THEN m.record END) AS denom,
-              COUNT(DISTINCT CASE WHEN {$this->periodCond('m.visit_date')} AND m.hiv_tested = '1' THEN m.record END) AS numer
-            FROM pncmp m
-            JOIN demog d ON d.record = m.record
-            JOIN negmums n ON n.record = m.record
+              COUNT(CASE WHEN p.outcome = '{$ldCodes['preg_outcome_live']}' AND p.place = '{$ldCodes['place_institutional']}' AND {$this->periodCond('p.visit_date')} AND {$this->ageCond('p.visit_date')} THEN 1 END) AS births_inst,
+              COUNT(CASE WHEN p.outcome = '{$ldCodes['preg_outcome_stillbirth']}' AND p.place = '{$ldCodes['place_institutional']}' AND {$this->periodCond('p.visit_date')} AND {$this->ageCond('p.visit_date')} THEN 1 END) AS stillbirths,
+              COUNT(CASE WHEN p.place = '{$ldCodes['place_home']}' AND {$this->periodCond('p.visit_date')} AND {$this->ageCond('p.visit_date')} THEN 1 END) AS births_home,
+              COUNT(CASE WHEN p.place = '{$ldCodes['place_bba']}' AND {$this->periodCond('p.visit_date')} AND {$this->ageCond('p.visit_date')} THEN 1 END) AS bba,
+              COUNT(DISTINCT CASE WHEN p.mother_die = '{$ldCodes['mother_die_yes']}' AND {$this->periodCond('p.visit_date')} AND {$this->ageCond('p.visit_date')} THEN p.record END) AS maternal_deaths,
+              COUNT(CASE WHEN p.newborn_die = '{$ldCodes['newborn_die_yes']}' AND {$this->periodCond('p.visit_date')} AND {$this->ageCond('p.visit_date')} THEN 1 END) AS neonatal_deaths,
+              COUNT(CASE WHEN {$this->periodCond('p.visit_date')} AND {$this->ageCond('p.visit_date')} THEN 1 END) AS deliveries,
+              COUNT(CASE WHEN p.pnc = '{$ldCodes['postnatal_care_yes']}' AND {$this->periodCond('p.visit_date')} AND {$this->ageCond('p.visit_date')} THEN 1 END) AS pnc_within_72,
+              COUNT(DISTINCT CASE WHEN p.hiv_status = '{$ldCodes['hiv_status_negative']}' AND p.breastfeeding = '{$ldCodes['breastfeeding_yes']}' AND {$this->periodCond('p.visit_date')} AND {$this->ageCond('p.visit_date')} THEN p.record END) AS bf_denom,
+              COUNT(DISTINCT CASE WHEN p.hiv_status = '{$ldCodes['hiv_status_negative']}' AND p.breastfeeding = '{$ldCodes['breastfeeding_yes']}' AND p.hiv_test_bf = '{$ldCodes['hiv_test_bf_yes']}' AND {$this->periodCond('p.visit_date')} AND {$this->ageCond('p.visit_date')} THEN p.record END) AS bf_numer,
+              COUNT(CASE WHEN p.hiv_status = '{$ldCodes['hiv_status_positive']}' AND {$this->periodCond('p.visit_date')} AND {$this->ageCond('p.visit_date')} THEN 1 END) AS hiv_pos_deliveries,
+              COUNT(CASE WHEN p.hiv_status = '{$ldCodes['hiv_status_positive']}' AND p.recieve_art = '{$ldCodes['recieve_art_yes']}' AND {$this->periodCond('p.visit_date')} AND {$this->ageCond('p.visit_date')} THEN 1 END) AS on_art_delivery
+            FROM ldp p
+            JOIN demog d ON d.record = p.record
         ", $bind);
 
         return [
@@ -413,12 +425,18 @@ class IndicatorService
             'births_inst' => ['value' => (int) $pncrRow->institutional],
             'births_home' => ['value' => (int) $pncrRow->non_institutional, 'extra' => ['bba' => (int) $pncrRow->bba]],
             'stillbirths' => ['value' => null],
+            'ld_births_inst' => ['value' => (int) $ldRow->births_inst],
+            'ld_births_home' => ['value' => (int) $ldRow->births_home, 'extra' => ['bba' => (int) $ldRow->bba]],
+            'ld_stillbirths' => ['value' => (int) $ldRow->stillbirths],
+            'ld_maternal_deaths' => ['value' => (int) $ldRow->maternal_deaths],
+            'ld_neonatal_deaths' => ['value' => (int) $ldRow->neonatal_deaths],
+            'ld_pnc_72h' => $this->rate((int) $ldRow->pnc_within_72, (int) $ldRow->deliveries),
             'neonatal_deaths' => ['value' => (int) $deathRow->neonatal_deaths],
             'maternal_deaths' => ['value' => (int) $deathRow->maternal_deaths],
             'pnc_72h' => $this->rate((int) $pncrRow->pnc_within_72, (int) $pncrRow->deliveries),
             'anc_first_tested' => $this->rate((int) $ancRow->first_tested, (int) $ancRow->new_bookings),
-            'bf_retest' => $this->rate((int) $retest->numer, (int) $retest->denom),
-            'art_at_delivery' => $this->rate((int) $pncrRow->on_art_delivery, (int) $pncrRow->hiv_pos_deliveries),
+            'bf_retest' => $this->rate((int) $ldRow->bf_numer, (int) $ldRow->bf_denom),
+            'art_at_delivery' => $this->rate((int) $ldRow->on_art_delivery, (int) $ldRow->hiv_pos_deliveries),
         ];
     }
 
