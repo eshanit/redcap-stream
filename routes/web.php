@@ -12,6 +12,7 @@ use App\Http\Controllers\Projects\Data6\IndicatorDashboardController as Data6Ind
 use App\Http\Controllers\Projects\Data6\InsightsController as Data6InsightsController;
 use App\Http\Controllers\Projects\Data6\OutreachController as Data6OutreachController;
 use App\Http\Controllers\Projects\Data6\OverviewDashboardController as Data6OverviewDashboardController;
+use App\Http\Controllers\Projects\Data6\PathwaysController as Data6PathwaysController;
 use App\Http\Controllers\Projects\Data6\ProjectDashboardController as Data6ProjectDashboardController;
 use App\Http\Controllers\Projects\Data6\ReportController as Data6ReportController;
 use App\Http\Controllers\Projects\AHP as AHPControllers;
@@ -58,6 +59,7 @@ Route::middleware('auth')->group(function () {
             ->where('record', '.*')->name('data6.flow.patient');
         Route::get('data6/project/{project_id}', Data6ProjectDashboardController::class)->name('data6.project.dashboard');
         Route::get('data6/outreach', [Data6OutreachController::class, 'index'])->name('data6.outreach');
+        Route::get('data6/pathways', [Data6PathwaysController::class, 'index'])->name('data6.pathways');
     });
 
     // Project NCD
@@ -200,19 +202,27 @@ Route::middleware('auth')->group(function () {
         Route::middleware('tier:pro')->group(function () {
             Route::get('data6/insights', [Data6InsightsController::class, 'data'])
                 ->name('api.data6.insights.data');
-            Route::get('data6/records-export', [Data6OverviewDashboardController::class, 'exportRecords'])
-                ->name('api.data6.records.export');
             Route::get('data6/reports', [Data6ReportController::class, 'data'])
                 ->name('api.data6.reports.data');
-            Route::get('data6/reports/excel', [Data6ReportController::class, 'excel'])
-                ->name('api.data6.reports.excel');
         });
 
+        // Whole-report and client-record exports are Pro+ only; Pro gets
+        // per-chart downloads, which are built client-side from page data.
         Route::middleware('tier:pro_plus')->group(function () {
+            Route::get('data6/records-export', [Data6OverviewDashboardController::class, 'exportRecords'])
+                ->name('api.data6.records.export');
+            Route::get('data6/reports/excel', [Data6ReportController::class, 'excel'])
+                ->name('api.data6.reports.excel');
             Route::get('data6/report', [Data6ProjectDashboardController::class, 'report'])
                 ->name('api.data6.report');
             Route::get('data6/outreach', [Data6OutreachController::class, 'data'])
                 ->name('api.data6.outreach.data');
+            Route::get('data6/pathways', [Data6PathwaysController::class, 'data'])
+                ->name('api.data6.pathways.data');
+            Route::get('data6/pathways/excel', [Data6PathwaysController::class, 'excel'])
+                ->name('api.data6.pathways.excel');
+            Route::get('data6/pathways/members', [Data6PathwaysController::class, 'members'])
+                ->name('api.data6.pathways.members');
         });
 
         Route::get('project/{project_id}/appointment_reviews/all_visits', [ReviewController::class, 'getAllVisits'])->name('api.appointment.reviews.all_visits');

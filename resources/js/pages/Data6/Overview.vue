@@ -8,7 +8,7 @@ import { type BreadcrumbItem } from '@/types';
 import { describeCategorical, describeTrend } from '@/composables/useChartInsights';
 import { useTier } from '@/composables/useTier';
 
-const { isPro, isProPlus, canDownload, canDownloadPdf } = useTier();
+const { isPro, isProPlus, canDownload, canDownloadPdf, canExportAll } = useTier();
 
 interface LabelCount { label: string; count: number; }
 interface DistrictFacilityCount { district: string; facility: string; count: number; }
@@ -358,7 +358,7 @@ const trendOptions = computed(() => ({
                             <p class="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[#82908a]"><Lightbulb class="size-3 text-[#e2644b]" />Insights</p>
                             <p v-for="(para, i) in insightParagraphs(facilityInsight)" :key="i" class="text-[12.5px] leading-5 text-[#52655f]" :class="i > 0 ? 'mt-2' : ''">{{ para }}</p>
                         </div>
-                        <div v-if="canDownload" class="mt-3 border-t border-[#eef0eb] pt-3 print:hidden">
+                        <div v-if="canExportAll" class="mt-3 border-t border-[#eef0eb] pt-3 print:hidden">
                             <p class="mb-2 text-[10px] font-bold uppercase tracking-wider text-[#82908a]">Download record IDs per facility (CSV)</p>
                             <div class="flex flex-wrap gap-1.5">
                                 <a v-for="f in summary.by_facility" :key="f.label" :href="exportUrl('facility', f.label)"
@@ -396,7 +396,7 @@ const trendOptions = computed(() => ({
                                 <p class="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[#82908a]"><Lightbulb class="size-3 text-[#e2644b]" />Insights</p>
                                 <p v-for="(para, i) in insightParagraphs(districtInsight)" :key="i" class="text-[12.5px] leading-5 text-[#52655f]" :class="i > 0 ? 'mt-2' : ''">{{ para }}</p>
                             </div>
-                            <div v-if="canDownload" class="mt-2 flex flex-wrap gap-1.5 border-t border-[#eef0eb] pt-2 print:hidden">
+                            <div v-if="canExportAll" class="mt-2 flex flex-wrap gap-1.5 border-t border-[#eef0eb] pt-2 print:hidden">
                                 <a v-for="d in summary.by_district" :key="d.label" :href="exportUrl('district', d.label)"
                                     class="inline-flex items-center gap-1.5 rounded-full border border-[#cbd3cd] bg-white px-2.5 py-1 text-[11px] font-semibold text-[#3c605b] transition hover:border-[#173b3b] hover:bg-[#173b3b] hover:text-white"
                                     :title="`Download the ${d.count.toLocaleString()} record IDs for ${d.label}`">
@@ -586,6 +586,22 @@ const trendOptions = computed(() => ({
                             <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-[#e2644b]">Pro+ feature</p>
                             <h3 class="mt-1 font-serif text-xl text-[#173b3b]">Patient flow &amp; tracking</h3>
                             <p class="mt-1 text-xs text-[#788681]">Follow one client across services. Upgrade to Pro+ to unlock this page.</p>
+                        </div>
+                        <Lock class="size-5 shrink-0 text-[#a6b1aa]" />
+                    </Link>
+                    <Link v-if="isProPlus" href="/data6/pathways" class="group flex items-center justify-between border border-[#d9ded7] bg-[#fcfcfb] p-5 transition hover:bg-white">
+                        <div>
+                            <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-[#e2644b]">For the programme manager</p>
+                            <h3 class="mt-1 font-serif text-xl text-[#173b3b]">Patient pathways</h3>
+                            <p class="mt-1 text-xs text-[#788681]">Where adolescents go after their first service — e.g. how many who started with STI later reached family planning.</p>
+                        </div>
+                        <ArrowRight class="size-5 shrink-0 text-[#a6b1aa] transition group-hover:translate-x-1" />
+                    </Link>
+                    <Link v-else href="/data6/plans" class="group flex items-center justify-between border border-[#d9ded7] bg-[#fcfcfb] p-5 opacity-70 transition hover:bg-white">
+                        <div>
+                            <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-[#e2644b]">Pro+ feature</p>
+                            <h3 class="mt-1 font-serif text-xl text-[#173b3b]">Patient pathways</h3>
+                            <p class="mt-1 text-xs text-[#788681]">Where adolescents go after their first service. Upgrade to Pro+ to unlock this page.</p>
                         </div>
                         <Lock class="size-5 shrink-0 text-[#a6b1aa]" />
                     </Link>

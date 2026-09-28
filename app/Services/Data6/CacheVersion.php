@@ -30,6 +30,7 @@ class CacheVersion
             app_path('Services/Data6/ReportWorkbook.php'),
             app_path('Services/Data6/InsightsService.php'),
             app_path('Services/Data6/SummaryService.php'),
+            app_path('Services/Data6/PathwayService.php'),
             app_path('Services/Data6/Analysis/ArtCascadeAnalysis.php'),
             app_path('Services/Data6/Analysis/HtsReconciliationAnalysis.php'),
             app_path('Services/Data6/Analysis/OutreachWorklistService.php'),

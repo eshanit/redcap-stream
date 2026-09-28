@@ -4,7 +4,7 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import {
     Activity, Baby, CalendarDays, Check, ChevronRight, CircleAlert,
     ClipboardList, Database, Download, Filter, GitMerge, HeartPulse, RefreshCw,
-    Search, ShieldCheck, Users,
+    Route, Search, ShieldCheck, Users,
 } from 'lucide-vue-next';
 import { computed, onMounted, ref } from 'vue';
 import { type BreadcrumbItem } from '@/types';
@@ -115,6 +115,9 @@ function downloadPdf(): void {
                         <button class="inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-4 py-2.5 text-xs font-bold text-[#3c605b] transition hover:bg-white" title="Opens the print dialog — choose &quot;Save as PDF&quot; as the destination" @click="downloadPdf">
                             <Download class="size-4" />Download PDF
                         </button>
+                        <Link href="/data6/pathways" class="inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-4 py-2.5 text-xs font-bold text-[#3c605b] transition hover:bg-white">
+                            <Route class="size-4" />Patient pathways
+                        </Link>
                         <Link href="/data6/outreach" class="inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-4 py-2.5 text-xs font-bold text-[#3c605b] transition hover:bg-white">
                             <ClipboardList class="size-4" />Outreach worklist
                         </Link>

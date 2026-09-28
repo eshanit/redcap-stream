@@ -33,7 +33,8 @@ const plans: PlanDef[] = [
         features: [
             'Main dashboard (who is in the data)',
             'AHP indicator dashboard — all 45 indicators',
-            'No download buttons (view-only)',
+            'Indicator deep-dive analysis',
+            'View only — no downloads',
         ],
     },
     {
@@ -41,13 +42,13 @@ const plans: PlanDef[] = [
         name: 'Pro',
         price: '$500',
         support: '6 months support',
-        tagline: 'Everything in Basic, plus deeper analysis and exports.',
+        tagline: 'Everything in Basic, plus deeper analysis and chart downloads.',
         features: [
             'Everything in Basic',
             'Cross-service insights (linkage, co-utilisation, journeys)',
-            'M&E reports page (Excel-ready)',
-            'PNG, JPG and CSV downloads on every chart and indicator',
-            'No whole-page PDF export',
+            'M&E reports page — all 45 indicators, disaggregated',
+            'PNG, JPG and CSV download of each chart and table, one at a time',
+            'No whole-page PDF, Excel workbook or full-report exports',
         ],
     },
     {
@@ -55,12 +56,13 @@ const plans: PlanDef[] = [
         name: 'Pro+',
         price: '$1000',
         support: '12 months support',
-        tagline: 'Full access, including patient-level tracking.',
+        tagline: 'Full access, including patient-level tracking and every download.',
         features: [
             'Everything in Pro',
             'Patient flow & cross-project tracking',
+            'Patient pathways — where adolescents go after their first service',
             'Outreach worklist — who\'s overdue across ART, PrEP and PNC',
-            'Whole-page PDF export on every report',
+            'Every download: whole-page PDFs, Excel workbooks, all-indicator CSV and client record-ID lists',
         ],
     },
 ];

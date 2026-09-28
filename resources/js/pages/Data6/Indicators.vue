@@ -9,7 +9,7 @@ import { type BreadcrumbItem } from '@/types';
 import { useTier } from '@/composables/useTier';
 import IndicatorCard from './IndicatorCard.vue';
 
-const { isPro, canDownload, canDownloadPdf } = useTier();
+const { isPro, canDownload, canDownloadPdf, canExportAll } = useTier();
 
 interface IndicatorMeta {
     id: number;
@@ -216,7 +216,54 @@ const facilitySeries = computed(() => [
 ]);
 const facilityCategories = computed(() => facilityBreakdown.value.map((f) => f.facility));
 
-// ---- CSV export ----------------------------------------------------------
+// ---- per-chart downloads (Pro) ------------------------------------------------
+const chartBtn = 'inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white';
+interface ApexChartHandle { dataURI(options?: { scale?: number }): Promise<{ imgURI?: string }>; }
+const trendChartRef = ref<ApexChartHandle | null>(null);
+const facilityChartRef = ref<ApexChartHandle | null>(null);
+const fileScope = computed(() => [district.value, facility.value].filter(Boolean).map((v) => `_${v}`).join(''));
+
+function triggerDownload(href: string, filename: string): void {
+    const link = document.createElement('a');
+    link.href = href;
+    link.download = filename;
+    link.click();
+}
+async function downloadChartImage(chartRef: { value: ApexChartHandle | null }, name: string, format: 'png' | 'jpg'): Promise<void> {
+    const pngUri = (await chartRef.value?.dataURI({ scale: 2 }))?.imgURI;
+    if (!pngUri) return;
+    const filename = `ahp_${name}${fileScope.value}_${from.value}_${to.value}.${format}`;
+    if (format === 'png') {
+        triggerDownload(pngUri, filename);
+        return;
+    }
+    const img = new Image();
+    img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        ctx.fillStyle = '#fcfcfb';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+        triggerDownload(canvas.toDataURL('image/jpeg', 0.95), filename);
+    };
+    img.src = pngUri;
+}
+function downloadChartCsv(headers: string[], rows: (string | number)[][], name: string): void {
+    const escape = (v: string | number): string => (/[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
+    const url = URL.createObjectURL(new Blob([[headers, ...rows].map((r) => r.map(escape).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8;' }));
+    triggerDownload(url, `ahp_${name}${fileScope.value}_${from.value}_${to.value}.csv`);
+    URL.revokeObjectURL(url);
+}
+// Called from script (not the template) so the refs arrive un-unwrapped.
+const downloadTrendImage = (format: 'png' | 'jpg') => downloadChartImage(trendChartRef, 'monthly_trend', format);
+const downloadFacilityImage = (format: 'png' | 'jpg') => downloadChartImage(facilityChartRef, 'by_facility', format);
+const downloadTrendCsv = () => downloadChartCsv(['Month', 'Unique adolescents', 'Visits'], trend.value.map((t) => [t.month, t.clients, t.visits]), 'monthly_trend');
+const downloadFacilityCsv = () => downloadChartCsv(['Facility', 'Unique adolescents'], facilityBreakdown.value.map((f) => [f.facility, f.clients]), 'by_facility');
+
+// ---- all-indicator CSV export (Pro+: a page-wide export) ------------------------
 function exportCsv(): void {
     const rows: string[] = ['id,indicator,group,status,value,numerator,denominator'];
     for (const meta of props.registry.indicators) {
@@ -276,7 +323,7 @@ function downloadPdf(): void {
                         <Link v-if="isPro" href="/data6/reports" class="inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-4 py-2 text-xs font-bold text-[#3c605b] transition hover:bg-white">
                             <FileSpreadsheet class="size-3.5" />M&amp;E reports
                         </Link>
-                        <button v-if="canDownload" class="inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-4 py-2 text-xs font-bold text-[#3c605b] transition hover:bg-white" @click="exportCsv">
+                        <button v-if="canExportAll" class="inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-4 py-2 text-xs font-bold text-[#3c605b] transition hover:bg-white" @click="exportCsv">
                             <Download class="size-3.5" />Export CSV
                         </button>
                         <button
@@ -340,13 +387,27 @@ function downloadPdf(): void {
                     <!-- Overview charts -->
                     <section class="mt-6 grid gap-4 xl:grid-cols-2">
                         <div class="border border-[#d9ded7] bg-[#fcfcfb] p-5 print:break-inside-avoid">
-                            <h2 class="text-sm font-bold text-[#244847]">Adolescents and visits by month</h2>
-                            <VueApexCharts v-if="trend.length" type="line" height="240" :options="trendOptions" :series="trendSeries" />
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <h2 class="text-sm font-bold text-[#244847]">Adolescents and visits by month</h2>
+                                <div v-if="canDownload && trend.length" class="flex items-center gap-2 print:hidden">
+                                    <button :class="chartBtn" @click="downloadTrendImage('png')"><Download class="size-3" />PNG</button>
+                                    <button :class="chartBtn" @click="downloadTrendImage('jpg')"><Download class="size-3" />JPG</button>
+                                    <button :class="chartBtn" @click="downloadTrendCsv"><Download class="size-3" />CSV</button>
+                                </div>
+                            </div>
+                            <VueApexCharts v-if="trend.length" ref="trendChartRef" type="line" height="240" :options="trendOptions" :series="trendSeries" />
                             <p v-else class="py-12 text-center text-xs text-[#898781]">No dated encounters in this period.</p>
                         </div>
                         <div class="border border-[#d9ded7] bg-[#fcfcfb] p-5 print:break-inside-avoid">
-                            <h2 class="text-sm font-bold text-[#244847]">Unique adolescents by facility</h2>
-                            <VueApexCharts v-if="facilityBreakdown.length" type="bar" :height="Math.max(200, facilityBreakdown.length * 32 + 60)"
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <h2 class="text-sm font-bold text-[#244847]">Unique adolescents by facility</h2>
+                                <div v-if="canDownload && facilityBreakdown.length" class="flex items-center gap-2 print:hidden">
+                                    <button :class="chartBtn" @click="downloadFacilityImage('png')"><Download class="size-3" />PNG</button>
+                                    <button :class="chartBtn" @click="downloadFacilityImage('jpg')"><Download class="size-3" />JPG</button>
+                                    <button :class="chartBtn" @click="downloadFacilityCsv"><Download class="size-3" />CSV</button>
+                                </div>
+                            </div>
+                            <VueApexCharts v-if="facilityBreakdown.length" ref="facilityChartRef" type="bar" :height="Math.max(200, facilityBreakdown.length * 32 + 60)"
                                 :options="{ ...facilityOptions, xaxis: { ...facilityOptions.xaxis, categories: facilityCategories } }"
                                 :series="facilitySeries" />
                             <p v-else class="py-12 text-center text-xs text-[#898781]">No facility data in this period.</p>

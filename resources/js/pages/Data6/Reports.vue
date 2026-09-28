@@ -6,7 +6,7 @@ import { computed, onMounted, ref } from 'vue';
 import { type BreadcrumbItem } from '@/types';
 import { useTier } from '@/composables/useTier';
 
-const { canDownloadPdf } = useTier();
+const { canDownload, canDownloadPdf, canExportAll } = useTier();
 
 interface GroupMeta { key: string; label: string; }
 interface Bucket { label: string; value: number | null; numerator?: number; denominator?: number; }
@@ -128,6 +128,46 @@ const gridLabels = computed(() => {
     return [...labels].sort();
 });
 
+// ---- per-table CSV (Pro: one table at a time; the full workbook is Pro+) ----
+function rawBucket(row: ReportRow, dim: string, label: string): number | null {
+    return row.by?.[dim]?.find((x) => x.label === label)?.value ?? null;
+}
+const unitOf = (row: ReportRow) => (row.type === 'percent' ? '%' : row.type === 'sum' ? 'sum' : 'count');
+const statusOf = (row: ReportRow) => [row.status === 'proxy' ? 'Proxy' : row.status === 'blocked' ? 'Not computable' : '', row.no_period ? 'All-time' : ''].filter(Boolean).join('; ');
+const fileScope = computed(() => [district.value, facility.value].filter(Boolean).map((v) => `_${v}`).join(''));
+
+function downloadCsv(headers: string[], rows: (string | number | null | undefined)[][], name: string): void {
+    const escape = (v: string | number | null | undefined): string => {
+        if (v === null || v === undefined) return '';
+        const s = String(v);
+        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const url = URL.createObjectURL(new Blob([[headers, ...rows].map((r) => r.map(escape).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8;' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `AHP_report_${name}${fileScope.value}_${from.value}_${to.value}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+}
+function downloadGroupCsv(group: { key: string; rows: ReportRow[] }): void {
+    downloadCsv(
+        ['Code', 'Indicator', 'Unit', 'Value', 'Numerator', 'Denominator', '10-14', '15-19', 'Male', 'Female', 'Status', 'Note'],
+        group.rows.map((r) => [
+            r.code, r.label, unitOf(r), r.total?.value, r.total?.numerator, r.total?.denominator,
+            rawBucket(r, 'age_band', '10-14'), rawBucket(r, 'age_band', '15-19'), rawBucket(r, 'sex', 'Male'), rawBucket(r, 'sex', 'Female'),
+            statusOf(r), r.note,
+        ]),
+        group.key,
+    );
+}
+function downloadGridCsv(): void {
+    downloadCsv(
+        ['Code', 'Indicator', 'Unit', ...gridLabels.value, 'Total'],
+        report.value.map((r) => [r.code, r.label, unitOf(r), ...gridLabels.value.map((l) => rawBucket(r, detailDim.value, l)), r.total?.value]),
+        `by_${detailDim.value}`,
+    );
+}
+
 const statusBadges: Record<string, { label: string; cls: string }> = {
     proxy: { label: 'Proxy', cls: 'bg-[#f7efdd] text-[#8f6115]' },
     blocked: { label: 'Not computable', cls: 'bg-[#f0efec] text-[#898781]' },
@@ -167,7 +207,7 @@ function downloadPdf(): void {
                         <button v-if="canDownloadPdf" class="inline-flex items-center gap-2 rounded-full border border-[#bdc9c3] px-5 py-2.5 text-xs font-bold text-[#3c605b] transition hover:bg-white" title="Opens the print dialog — choose &quot;Save as PDF&quot; as the destination" @click="downloadPdf">
                             <Download class="size-4" />Download PDF
                         </button>
-                        <a :href="excelUrl" class="inline-flex items-center gap-2 rounded-full bg-[#173b3b] px-5 py-2.5 text-xs font-bold text-white transition hover:bg-[#285655]">
+                        <a v-if="canExportAll" :href="excelUrl" class="inline-flex items-center gap-2 rounded-full bg-[#173b3b] px-5 py-2.5 text-xs font-bold text-white transition hover:bg-[#285655]">
                             <FileSpreadsheet class="size-4" />Download Excel
                         </a>
                         <button class="rounded-full border border-[#bdc9c3] p-2.5 text-[#3c605b] transition hover:bg-white" title="Refresh" @click="load">
@@ -224,7 +264,12 @@ function downloadPdf(): void {
                 <template v-else-if="report.length">
                     <!-- Summary tables by group -->
                     <section v-for="group in groups" :key="group.key" class="mt-7">
-                        <h2 class="mb-2 font-serif text-xl text-[#173b3b] print:break-after-avoid">{{ group.label }}<span v-if="filterLabel" class="text-base font-sans font-normal text-[#788681]"> ({{ filterLabel }})</span></h2>
+                        <div class="mb-2 flex flex-wrap items-center gap-3">
+                            <h2 class="font-serif text-xl text-[#173b3b] print:break-after-avoid">{{ group.label }}<span v-if="filterLabel" class="text-base font-sans font-normal text-[#788681]"> ({{ filterLabel }})</span></h2>
+                            <button v-if="canDownload" class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white print:hidden" @click="downloadGroupCsv(group)">
+                                <Download class="size-3" />CSV
+                            </button>
+                        </div>
                         <div class="overflow-x-auto border border-[#d9ded7] bg-[#fcfcfb] print:overflow-visible">
                             <table class="w-full min-w-[860px] text-left text-xs" style="font-variant-numeric: tabular-nums">
                                 <thead class="border-b border-[#d9ded7] bg-[#f0f2ec] text-[10px] font-bold uppercase tracking-wider text-[#5a6f69]">
@@ -291,7 +336,12 @@ function downloadPdf(): void {
                     <!-- Facility / district grid -->
                     <section class="mt-9">
                         <div class="mb-2 flex items-center justify-between">
-                            <h2 class="font-serif text-xl text-[#173b3b] print:break-after-avoid">Indicator × {{ detailDim }}<span v-if="filterLabel" class="text-base font-sans font-normal text-[#788681]"> ({{ filterLabel }})</span></h2>
+                            <div class="flex flex-wrap items-center gap-3">
+                                <h2 class="font-serif text-xl text-[#173b3b] print:break-after-avoid">Indicator × {{ detailDim }}<span v-if="filterLabel" class="text-base font-sans font-normal text-[#788681]"> ({{ filterLabel }})</span></h2>
+                                <button v-if="canDownload" class="inline-flex items-center gap-1.5 rounded-full border border-[#bdc9c3] px-3 py-1 text-[11px] font-bold text-[#3c605b] transition hover:bg-white print:hidden" @click="downloadGridCsv">
+                                    <Download class="size-3" />CSV
+                                </button>
+                            </div>
                             <div class="flex gap-1 rounded-full border border-[#cbd3cd] bg-white p-1 print:hidden">
                                 <button v-for="dim in (['facility', 'district'] as const)" :key="dim"
                                     class="rounded-full px-3 py-1.5 text-xs font-bold capitalize transition"
@@ -322,7 +372,7 @@ function downloadPdf(): void {
                         </div>
                     </section>
 
-                    <p class="mt-5 flex items-start gap-2 text-xs leading-5 text-[#7d8b85] print:hidden">
+                    <p v-if="canExportAll" class="mt-5 flex items-start gap-2 text-xs leading-5 text-[#7d8b85] print:hidden">
                         <Download class="mt-0.5 size-3.5 shrink-0" />
                         The Excel download contains these tables as separate sheets (Summary, By facility, By district)
                         plus a Definitions sheet documenting the exact rule applied for every indicator, including proxies.
