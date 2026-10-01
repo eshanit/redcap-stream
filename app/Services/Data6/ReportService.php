@@ -33,6 +33,11 @@ class ReportService
 
     private ?int $ageHi = 19;
 
+    /** Memoised per report() call - see facilityUniverse()/districtUniverse(). */
+    private ?array $facilityUniverse = null;
+
+    private ?array $districtUniverse = null;
+
     public function report(string $from, string $to, ?string $district = null, ?string $facility = null): array
     {
         if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $from) || ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $to)) {
@@ -367,6 +372,21 @@ class ReportService
         foreach ($rows as $row) {
             $groups[$row[$dim] ?? 'Unknown'][] = $row;
         }
+        // age_band, sex, facility and district are all known, fixed
+        // categories within the current filters. Without this, a category
+        // with zero occurrences (e.g. zero maternal deaths at a facility, or
+        // in the 10-14 band) has no entry at all, and the report page can't
+        // tell that apart from "not computable" - both render as a dash.
+        // Filling the known categories in with an empty subset (-> a real 0)
+        // fixes that; `+=` only adds keys not already present, so a category
+        // that did occur keeps its real rows.
+        $groups += match ($dim) {
+            'age_band' => ['10-14' => [], '15-19' => []],
+            'sex' => ['Male' => [], 'Female' => []],
+            'facility' => array_fill_keys($this->facilityUniverse(), []),
+            'district' => array_fill_keys($this->districtUniverse(), []),
+            default => [],
+        };
         ksort($groups);
 
         $out = [];
@@ -375,6 +395,30 @@ class ReportService
         }
 
         return $out;
+    }
+
+    /** Every facility with an eligible adolescent under the current district/facility filters - the "columns" the Indicator x facility grid must always show, even at zero. */
+    private function facilityUniverse(): array
+    {
+        return $this->facilityUniverse ??= $this->dimUniverse('facility');
+    }
+
+    /** Same as facilityUniverse(), for district. */
+    private function districtUniverse(): array
+    {
+        return $this->districtUniverse ??= $this->dimUniverse('district');
+    }
+
+    private function dimUniverse(string $col): array
+    {
+        [$demog, $bind] = $this->demogSql();
+        $rows = DB::select("
+            SELECT DISTINCT COALESCE(NULLIF({$col}, ''), 'Unknown') AS label
+            FROM ({$demog}) d
+            ORDER BY label
+        ", $bind);
+
+        return array_column($rows, 'label');
     }
 
     private function pairBucket(array $num, array $den): array
