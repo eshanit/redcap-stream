@@ -392,9 +392,9 @@ class InsightsService
         $hts = $this->pivotSql(self::$P_ALL, ['tested' => 'hts_tested', 'test_date' => 'hts_hiv_date', 'result' => 'hts_hiv_result', 'art_init' => 'hts_art_init']);
         $sti = $this->pivotSql(self::$P_ALL, ['tested' => 'sti_hiv_test', 'test_date' => 'sti_visit_date', 'result' => 'sti_hiv_test_result']);
         $prep = $this->pivotSql(self::$P_ALL, ['tested' => 'prep_hiv_test', 'test_date' => 'prep_visit_date', 'result' => 'prep_hiv_test_results']);
-        $anc = $this->pivotSql(self::$P_FCH, ['result' => 'anc_hiv_test_results', 'test_date' => 'anc_date']);
-        $artr = $this->pivotSql(self::$P_ART, ['first_test' => 'artr_first_hiv_test', 'reg_date' => 'artr_registration_date']);
-        $art = $this->pivotSql(self::$P_ART, ['visit_date' => 'art_review_date', 'vl_done' => 'art_viral_load', 'vl_detected' => 'art_vl_detected', 'vl_result' => 'art_vl_result', 'vl_date' => 'art_vl_collect_date']);
+        $anc = $this->pivotSql(self::$P_ALL, ['result' => 'anc_hiv_test_results', 'test_date' => 'anc_date']);
+        $artr = $this->pivotSql(self::$P_ALL, ['first_test' => 'artr_first_hiv_test', 'reg_date' => 'artr_registration_date']);
+        $art = $this->pivotSql(self::$P_ALL, ['visit_date' => 'art_review_date', 'vl_done' => 'art_viral_load', 'vl_detected' => 'art_vl_detected', 'vl_result' => 'art_vl_result', 'vl_date' => 'art_vl_collect_date']);
 
         $rows = DB::select("
             WITH demog AS ({$demog}),
@@ -589,8 +589,8 @@ class InsightsService
     private function ancContinuum(array $profiles): array
     {
         [$demog, $bind] = $this->demogSql();
-        $ancr = $this->pivotSql(self::$P_FCH, ['reg_date' => 'ancr_date', 'first_booking' => 'ancr_first_booking', 'hiv_prior' => 'ancr_hiv_prior']);
-        $pncr = $this->pivotSql(self::$P_FCH, ['reg_date' => 'pncr_date', 'hiv_post' => 'pncr_hiv_status_post', 'on_art' => 'pncr_hiv_status_art', 'place' => 'pncr_place_of_delivery']);
+        $ancr = $this->pivotSql(self::$P_ALL, ['reg_date' => 'ancr_date', 'first_booking' => 'ancr_first_booking', 'hiv_prior' => 'ancr_hiv_prior']);
+        $pncr = $this->pivotSql(self::$P_ALL, ['reg_date' => 'pncr_date', 'hiv_post' => 'pncr_hiv_status_post', 'on_art' => 'pncr_hiv_status_art', 'place' => 'pncr_place_of_delivery']);
 
         $r = DB::selectOne("
             WITH demog AS ({$demog}), a AS ({$ancr}), b AS ({$pncr})

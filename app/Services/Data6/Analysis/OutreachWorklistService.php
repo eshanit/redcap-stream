@@ -66,8 +66,8 @@ class OutreachWorklistService
 
     private function artOverdue(): array
     {
-        $artr = $this->pivotSql(self::$P_ART, ['access' => 'artr_access']);
-        $art = $this->pivotSql(self::$P_ART, [
+        $artr = $this->pivotSql(self::$P_ALL, ['access' => 'artr_access']);
+        $art = $this->pivotSql(self::$P_ALL, [
             'visit_date' => 'art_review_date', 'next_visit' => 'art_next_review_date', 'outcome' => 'art_final_outcome',
         ]);
 
@@ -151,8 +151,8 @@ class OutreachWorklistService
 
     private function pncMotherOverdue(): array
     {
-        $pncr = $this->pivotSql(self::$P_FCH, ['access' => 'pncr_access']);
-        $pncm = $this->pivotSql(self::$P_FCH, [
+        $pncr = $this->pivotSql(self::$P_ALL, ['access' => 'pncr_access']);
+        $pncm = $this->pivotSql(self::$P_ALL, [
             'visit_date' => 'pncm_visit_date', 'status' => 'pncm_mother_follow_up',
         ]);
 
@@ -187,8 +187,8 @@ class OutreachWorklistService
 
     private function pncBabyOverdue(): array
     {
-        $pncr = $this->pivotSql(self::$P_FCH, ['access' => 'pncr_access']);
-        $pncb = $this->pivotSql(self::$P_FCH, [
+        $pncr = $this->pivotSql(self::$P_ALL, ['access' => 'pncr_access']);
+        $pncb = $this->pivotSql(self::$P_ALL, [
             'visit_date' => 'pncb_visit_date', 'status' => 'pncb_infant_follow_ups',
         ]);
 

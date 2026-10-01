@@ -53,20 +53,51 @@ trait QueryFragments
         return [$sql, $bindings];
     }
 
-    /** Pivot one instrument's fields to columns, one row per (record, event, instance). */
+    /**
+     * Pivot one instrument's fields to columns, one row per (record, event,
+     * instance). Safe across more than one project: `event_id` is a
+     * project-LOCAL form identifier - confirmed by its ranges never
+     * overlapping between projects 76/78/79 - so it can never associate "the
+     * same submission" across two projects, only isolate rows within one.
+     * When $projects names more than one project, each is therefore pivoted
+     * separately (event_id stays meaningful there), the results are unioned,
+     * and an outer SELECT DISTINCT collapses true mirrors - rows a client's
+     * form produced identically in more than one project - without needing
+     * to know which pivoted column is a date. A single project (the common
+     * case) skips the union/distinct entirely: zero behaviour change.
+     *
+     * This same mechanism is what makes it safe for any instrument to be
+     * unioned across whichever of 76/78/79 its fields actually appear in,
+     * rather than assuming a fixed "home" project per instrument.
+     */
     protected function pivotSql(string $projects, array $fields): string
     {
+        $projectIds = array_values(array_filter(array_map('trim', explode(',', $projects)), fn ($p) => $p !== ''));
         $cases = [];
         foreach ($fields as $alias => $field) {
             $cases[] = "MAX(CASE WHEN field_name = '{$field}' THEN value END) AS {$alias}";
         }
         $fieldList = "'".implode("', '", array_values($fields))."'";
 
-        return 'SELECT record, event_id, COALESCE(instance, 1) AS inst, '.implode(', ', $cases).'
+        $perProject = array_map(fn ($p) => "SELECT record, event_id, COALESCE(instance, 1) AS inst, ".implode(', ', $cases).'
                 FROM redcap_data6
-                WHERE project_id IN ('.$projects.")
+                WHERE project_id IN ('.$p.")
                   AND field_name IN ({$fieldList})
-                GROUP BY record, event_id, COALESCE(instance, 1)";
+                GROUP BY record, event_id, COALESCE(instance, 1)", $projectIds);
+
+        if ($perProject === []) {
+            // Defensive only - no call site passes an empty project list today.
+            $nulls = implode(', ', array_map(fn ($a) => "NULL AS {$a}", array_keys($fields)));
+
+            return "SELECT NULL AS record, NULL AS inst, {$nulls} FROM redcap_data6 WHERE 1 = 0";
+        }
+        if (count($perProject) === 1) {
+            return $perProject[0];
+        }
+
+        $columns = 'record, inst, '.implode(', ', array_keys($fields));
+
+        return "SELECT DISTINCT {$columns} FROM (".implode("\nUNION ALL\n", $perProject).') u';
     }
 
     /** Age-at-date condition against the demog alias `d`. */
@@ -143,30 +174,35 @@ trait QueryFragments
     /**
      * UNION of one row per (record, instrument, date, instance) for every
      * dated encounter, deduplicated across mirrored projects. `project_id`
-     * is the lowest project the encounter appears under when a shared
-     * instrument (sti/prepr/prep/hts/pls) has mirrored copies in more than
-     * one project - informational only (which form it can be reviewed in),
-     * never used to multiply the encounter itself, since GROUP BY (not
-     * SELECT DISTINCT) is what still collapses those mirrored copies to
-     * one row.
+     * is the lowest project the encounter appears under when an instrument
+     * has mirrored or independently-entered copies in more than one project
+     * - informational only (which form it can be reviewed in), never used
+     * to multiply the encounter itself, since GROUP BY (not SELECT DISTINCT)
+     * is what still collapses those mirrored copies to one row.
+     *
+     * Every instrument is scoped to P_ALL: none of them are reliably
+     * confined to one "home" project in practice (confirmed empirically -
+     * e.g. family planning, nominally FCH-only, has real client visits
+     * recorded under OI/ART too), so every instrument is unioned across
+     * whichever of 76/78/79 its fields actually appear in.
      */
     protected function encountersSql(): string
     {
         $sources = [
             ['sti', self::$P_ALL, 'sti_visit_date'],
-            ['fp', self::$P_FCH, 'fp_date'],
-            ['ancr', self::$P_FCH, 'ancr_date'],
-            ['anc', self::$P_FCH, 'anc_date'],
-            ['pncr', self::$P_FCH, 'pncr_date'],
-            ['pncm', self::$P_FCH, 'pncm_visit_date'],
-            ['pncb', self::$P_FCH, 'pncb_visit_date'],
+            ['fp', self::$P_ALL, 'fp_date'],
+            ['ancr', self::$P_ALL, 'ancr_date'],
+            ['anc', self::$P_ALL, 'anc_date'],
+            ['pncr', self::$P_ALL, 'pncr_date'],
+            ['pncm', self::$P_ALL, 'pncm_visit_date'],
+            ['pncb', self::$P_ALL, 'pncb_visit_date'],
             ['prepr', self::$P_ALL, 'prepr_date'],
             ['prep', self::$P_ALL, 'prep_visit_date'],
-            ['artr', self::$P_ART, 'artr_registration_date'],
-            ['art', self::$P_ART, 'art_review_date'],
+            ['artr', self::$P_ALL, 'artr_registration_date'],
+            ['art', self::$P_ALL, 'art_review_date'],
             ['hts', self::$P_ALL, 'hts_hiv_date'],
             ['pls', self::$P_ALL, 'pls_date'],
-            ['opd', self::$P_OPD, 'opd_date'],
+            ['opd', self::$P_ALL, 'opd_date'],
         ];
 
         $parts = [];

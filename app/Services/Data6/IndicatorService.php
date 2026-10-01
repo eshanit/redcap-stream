@@ -129,8 +129,8 @@ class IndicatorService
         ]);
         $sti = $this->pivotSql(self::$P_ALL, ['tested' => 'sti_hiv_test', 'test_date' => 'sti_visit_date', 'result' => 'sti_hiv_test_result']);
         $prep = $this->pivotSql(self::$P_ALL, ['tested' => 'prep_hiv_test', 'test_date' => 'prep_visit_date', 'result' => 'prep_hiv_test_results']);
-        $anc = $this->pivotSql(self::$P_FCH, ['result' => 'anc_hiv_test_results', 'test_date' => 'anc_date']);
-        $artrTest = $this->pivotSql(self::$P_ART, ['first_test' => 'artr_first_hiv_test']);
+        $anc = $this->pivotSql(self::$P_ALL, ['result' => 'anc_hiv_test_results', 'test_date' => 'anc_date']);
+        $artrTest = $this->pivotSql(self::$P_ALL, ['first_test' => 'artr_first_hiv_test']);
 
         // Official AHP004-006 count the HTS register only; the "_all"
         // supplementary set unions every documented testing entry point.
@@ -177,7 +177,7 @@ class IndicatorService
     private function artIndicators(): array
     {
         [$demog, $bind] = $this->demogSql();
-        $art = $this->pivotSql(self::$P_ART, [
+        $art = $this->pivotSql(self::$P_ALL, [
             'visit_date' => 'art_review_date',
             'next_visit' => 'art_next_review_date',
             'outcome' => 'art_final_outcome',
@@ -187,7 +187,7 @@ class IndicatorService
             'vl_result' => 'art_vl_result',
         ]);
         $hts = $this->pivotSql(self::$P_ALL, ['art_init' => 'hts_art_init', 'test_date' => 'hts_hiv_date']);
-        $artr = $this->pivotSql(self::$P_ART, ['referred' => 'artr_referred', 'reg_date' => 'artr_registration_date']);
+        $artr = $this->pivotSql(self::$P_ALL, ['referred' => 'artr_referred', 'reg_date' => 'artr_registration_date']);
 
         $dateOk = "p.visit_date REGEXP '".self::$DATE_RE."'";
         $vlDate = "COALESCE(NULLIF(p.vl_date, ''), p.visit_date)";
@@ -330,20 +330,20 @@ class IndicatorService
     {
         [$demog, $bind] = $this->demogSql();
 
-        $ancr = $this->pivotSql(self::$P_FCH, [
+        $ancr = $this->pivotSql(self::$P_ALL, [
             'reg_date' => 'ancr_date', 'first_booking' => 'ancr_first_booking',
             'hiv_prior' => 'ancr_hiv_prior', 'contact_no' => 'ancr_contact_number',
         ]);
-        $anc = $this->pivotSql(self::$P_FCH, ['visit_date' => 'anc_date', 'contact_no' => 'anc_contact_number']);
-        $pncr = $this->pivotSql(self::$P_FCH, [
+        $anc = $this->pivotSql(self::$P_ALL, ['visit_date' => 'anc_date', 'contact_no' => 'anc_contact_number']);
+        $pncr = $this->pivotSql(self::$P_ALL, [
             'reg_date' => 'pncr_date', 'place' => 'pncr_place_of_delivery',
             'baby_dob' => 'pncr_date_of_birth',
         ]);
-        $pncm = $this->pivotSql(self::$P_FCH, [
+        $pncm = $this->pivotSql(self::$P_ALL, [
             'visit_date' => 'pncm_visit_date', 'follow_up' => 'pncm_mother_follow_up', 'hiv_tested' => 'pncm_hiv_tested',
         ]);
-        $pncb = $this->pivotSql(self::$P_FCH, ['visit_date' => 'pncb_visit_date', 'infant_status' => 'pncb_infant_follow_ups']);
-        $ld = $this->pivotSql(self::$P_FCH, [
+        $pncb = $this->pivotSql(self::$P_ALL, ['visit_date' => 'pncb_visit_date', 'infant_status' => 'pncb_infant_follow_ups']);
+        $ld = $this->pivotSql(self::$P_ALL, [
             'visit_date' => 'ld_date', 'outcome' => 'ld_preg_outcome', 'place' => 'ld_delivery_place_2',
             'mother_die' => 'ld_mother_die', 'newborn_die' => 'ld_newborn_die', 'pnc' => 'ld_postnatal_care',
             'hiv_status' => 'ld_hiv_status', 'breastfeeding' => 'ld_breastfeeding', 'hiv_test_bf' => 'ld_hiv_test_bf',
@@ -448,7 +448,7 @@ class IndicatorService
     {
         [$demog, $bind] = $this->demogSql();
 
-        $fp = $this->pivotSql(self::$P_FCH, ['visit_date' => 'fp_date', 'category' => 'fp_client_category']);
+        $fp = $this->pivotSql(self::$P_ALL, ['visit_date' => 'fp_date', 'category' => 'fp_client_category']);
         $prepr = $this->pivotSql(self::$P_ALL, [
             'reg_date' => 'prepr_date', 'screened' => 'prepr_screened', 'visit_status' => 'prepr_visit_status',
             'initiate' => 'prepr_prep_initiate', 'start_date' => 'prepr_prep_start_date',

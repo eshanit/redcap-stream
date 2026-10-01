@@ -75,8 +75,8 @@ class HtsReconciliationAnalysis
         $hts = $this->pivotSql(self::$P_ALL, ['tested' => 'hts_tested', 'test_date' => 'hts_hiv_date']);
         $sti = $this->pivotSql(self::$P_ALL, ['tested' => 'sti_hiv_test', 'test_date' => 'sti_visit_date', 'result' => 'sti_hiv_test_result']);
         $prep = $this->pivotSql(self::$P_ALL, ['tested' => 'prep_hiv_test', 'test_date' => 'prep_visit_date', 'result' => 'prep_hiv_test_results']);
-        $anc = $this->pivotSql(self::$P_FCH, ['result' => 'anc_hiv_test_results', 'test_date' => 'anc_date']);
-        $artr = $this->pivotSql(self::$P_ART, ['first_test' => 'artr_first_hiv_test']);
+        $anc = $this->pivotSql(self::$P_ALL, ['result' => 'anc_hiv_test_results', 'test_date' => 'anc_date']);
+        $artr = $this->pivotSql(self::$P_ALL, ['first_test' => 'artr_first_hiv_test']);
 
         $rows = DB::select("
             WITH evidence AS (
@@ -121,7 +121,7 @@ class HtsReconciliationAnalysis
     private function artInitiationGap(): array
     {
         $hts = $this->pivotSql(self::$P_ALL, ['art_init' => 'hts_art_init', 'test_date' => 'hts_hiv_date']);
-        $art = $this->pivotSql(self::$P_ART, ['arv_status' => 'art_arv_status', 'visit_date' => 'art_review_date']);
+        $art = $this->pivotSql(self::$P_ALL, ['arv_status' => 'art_arv_status', 'visit_date' => 'art_review_date']);
 
         $rows = DB::select("
             WITH evidence AS (

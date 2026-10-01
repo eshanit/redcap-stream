@@ -70,8 +70,8 @@ class ArtCascadeAnalysis
 
     private function cohortOutcomes(): array
     {
-        $artr = $this->pivotSql(self::$P_ART, ['referred' => 'artr_referred', 'reg_date' => 'artr_registration_date', 'access' => 'artr_access']);
-        $art = $this->pivotSql(self::$P_ART, [
+        $artr = $this->pivotSql(self::$P_ALL, ['referred' => 'artr_referred', 'reg_date' => 'artr_registration_date', 'access' => 'artr_access']);
+        $art = $this->pivotSql(self::$P_ALL, [
             'visit_date' => 'art_review_date', 'next_visit' => 'art_next_review_date', 'outcome' => 'art_final_outcome',
         ]);
 
@@ -148,8 +148,8 @@ class ArtCascadeAnalysis
      */
     private function retentionTrend(): array
     {
-        $artr = $this->pivotSql(self::$P_ART, ['reg_date' => 'artr_registration_date']);
-        $art = $this->pivotSql(self::$P_ART, [
+        $artr = $this->pivotSql(self::$P_ALL, ['reg_date' => 'artr_registration_date']);
+        $art = $this->pivotSql(self::$P_ALL, [
             'visit_date' => 'art_review_date', 'next_visit' => 'art_next_review_date', 'outcome' => 'art_final_outcome',
         ]);
 
@@ -202,7 +202,7 @@ class ArtCascadeAnalysis
 
     private function vlCoverage(): array
     {
-        $art = $this->pivotSql(self::$P_ART, [
+        $art = $this->pivotSql(self::$P_ALL, [
             'visit_date' => 'art_review_date', 'next_visit' => 'art_next_review_date', 'outcome' => 'art_final_outcome',
             'vl_done' => 'art_viral_load', 'vl_date' => 'art_vl_collect_date',
         ]);

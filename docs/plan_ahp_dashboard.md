@@ -1,6 +1,8 @@
 # AHP Indicator Dashboard Plan (Data6)
 
 > **UPDATE 2026-09-05:** the revised matrix `data/20260905_AHP_ Indicators_kpq.xlsx` (with real field names per indicator) is implemented: registry v2 in `config/data6_indicators.php`, revised definitions in `app/Services/Data6/IndicatorService.php`, disaggregated M&E reports (age band/sex/facility/district) in `ReportService` + `/data6/reports` with Excel export. Key definition changes: HIV testing = HTS register only; ART initiation = `hts_art_init`; transfer-in = `artr_referred`; first-ANC testing = `ancr_hiv_prior`; PrEP continuing includes newly initiated. A Labour & Delivery form (`ld_*`) will replace the PNCR interim proxies for AHP020–028 once live (`ld.enabled` config switch; choice codes to confirm against its dictionary).
+>
+> **CORRECTION 2026-10-01:** the "home project" rule below (§1, point 1, confirmed 2026-09-02) has been superseded - it stopped holding true and was silently undercounting several indicators. See the correction note at the end of §1 for what changed, why, and the reconciliation impact.
 
 **Goal:** deliver the 45 AHP indicators defined in `data/20260715_AHP_ Indicators.xlsx` as a comprehensive, filterable dashboard on top of the `redcap_data6` projects (76 FCH, 78 OI/ART, 79 OPD), building on the tracking layer already established (`data6_source_records`, `data6_patients`, `data6_patient_source_records`, `data6_encounters`).
 
@@ -33,6 +35,24 @@ Profiling `database/redcap_data6.sql` shows exactly how the duplication works, a
 3. **`record` is a shared patient identifier — and continues from project 48.** Of ~6,100 distinct records, **5,885 appear in all three projects**, 42 in two, and only 191 in one. The canonical patient keys on `record`, with the 233 non-mirrored records surfaced in the identity review queue. **Confirmed by client (2026-09-02):** record values continue from historical project 48 in `redcap_data3`, so the canonical patient can link back to pre-split history. This matters for the ART cohort indicators (8–10): initiation dates and visit history predating the split (the dump has `art_review_date` back to 2010) are valid clinical history, and project 48 in `redcap_data3` can serve as a secondary reconciliation source via the existing `ProjectData3` model.
 
 3. **Multiple events per project** (76: events 1420–1434; 78: 1450+; 79: 1470+), not the single event assumed in `plan_update_1.md`. `event_id` maps between mirrors positionally — resolve via `redcap_events_metadata`, never by raw ID equality.
+
+---
+
+**CORRECTION (2026-10-01) — the "home project only" rule in point 1 above no longer holds, and the engine has been changed accordingly.** The record above is left as-is for history; this note explains what changed and why.
+
+*What was found:* two client records (`MUS 138`, `MUS/2026/00204`) had real, current family planning visits (`fp_date` 2026-01-29 through 2026-06-30) recorded entirely under project 78 (OI/ART) - invisible to every FP indicator and the Reports page, since `fp_*` was read only from project 76. Checking how widespread this was:
+
+- 24 records across the dataset had an instrument's data *only* in a non-home project, invisible under the old rule - not just the two FP records above; some ANC entries show the same pattern.
+- The "frozen baseline" evidence in point 1 was accurate when it was gathered (2026-09-02), but has since gone stale: `ancr_date` in project 78 continued to update through 2026-04-27 (past the quoted 2026-03-03 freeze), and `fp_date` in project 78 continued through 2026-08-29 - a full ongoing stream, not a frozen copy.
+- The two already-"shared" instruments HTS and PrEP registration (point 2) were themselves found to have 17 and 36 record+date pairs respectively genuinely duplicated across projects, undercounted by the exact same mechanism described next - a pre-existing bug, independent of the home-project question.
+
+*Why the home-project rule broke down silently:* it's not just that new data drifted into non-home projects over time (which point 1 already anticipated, calling it a risk to "double-check... during Phase A profiling" - that profiling step never happened before build). The dedup mechanism point 3 proposed - resolving `event_id` across mirrors via `redcap_events_metadata` - turned out to be unnecessary to build, because it can't work at all: `event_id` ranges never overlap between projects (76: 1420-1434, 78: 1450-1463, 79: 1465-1479; confirmed by direct query), so it is a project-LOCAL form identifier, not a cross-project submission ID. It can isolate one real form submission *within* one project, but it can never be used to recognise "this is the same visit" *across* two projects.
+
+*What changed:* every instrument (not just FP) is now unioned across whichever of projects 76/78/79 its fields actually appear in, with deduplication done on the record and the visit's own recorded field values rather than on `event_id` - each project is pivoted separately (where `event_id` is safely meaningful), the results are combined, and an outer `SELECT DISTINCT` collapses true mirrors. Core fix in `pivotSql()`, `app/Services/Data6/QueryFragments.php`; every call site across `IndicatorService.php`, `ReportService.php`, `InsightsService.php` and `Analysis/*.php` was widened to match (~45 call sites). Detail in `config/data6_indicators.php`'s `method_common` and the `fp_new`/`fp_repeat`/`prep_*` method text.
+
+*Reconciliation impact:* re-ran all 45 indicators before/after for 2025-01-01 to 2026-10-01. 15 changed; 13 counts increased (previously-invisible clients/visits now counted, e.g. AHP001 access 3,008→3,045, AHP030 FP repeat users 66→70); 2 rates (AHP006a, AHP009) dropped slightly (5.8%→5.7%, 97.7%→97.3%) but in both cases the numerator held steady or grew - the drop is the denominator becoming more complete, not a lost client. No indicator's numerator decreased.
+
+---
 
 4. **Instance is mostly NULL** (616k NULL vs ~60k numbered, max observed 14+). The `normalized_instance` approach already implemented in `ProjectData6Service` is correct.
 
@@ -229,7 +249,7 @@ Each phase lands with its tests; existing project 32/39/48 suites must stay gree
 
 ## 6. Open decisions (blockers before their phase)
 
-1. ~~Dedup rule~~ **Resolved (2026-09-02):** dedup confirmed; conflicting duplicates resolve to the updated version (home project for service forms, divergent-from-baseline for shared instruments), logged to data quality. Only the home-project assignments per form remain to be double-checked against the split-copy cutoff dates during Phase A profiling.
+1. ~~Dedup rule~~ **Resolved (2026-09-02), superseded (2026-10-01):** the home-project-per-form assignment flagged below as still needing a double-check did fail that check - see the §1 correction note. The engine no longer assigns a home project per form at all; every instrument is now unioned across whichever projects its fields actually appear in and deduplicated on the record and the visit's own fields (not on `event_id`, which turned out to be project-local and unusable for this - also see the §1 correction note). Conflicting duplicate *values* (as opposed to one-sided duplicate rows, which is what was actually found) have not been observed in practice and still have no implemented resolution policy beyond `MAX()` picking one; revisit if real conflicts turn up.
 1b. ~~Project 48 linkage~~ **Resolved (2026-09-02):** record values continue from project 48; pre-split history is valid clinical history, entered from manual registers. Treat `redcap_data3` project 48 as a reconciliation source for ART cohort baselines.
 2. **Adolescent definition** — 10–19 assumed; and how to treat the ~300 infant records with 2025/26 birthdates in access counts (blocks Phase C).
 3. **HIV testing scope (ind. 4–5)** — which entry points count: HTS only, or HTS+STI+PrEP+ANC?

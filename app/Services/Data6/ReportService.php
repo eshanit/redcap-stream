@@ -460,22 +460,22 @@ class ReportService
         $numRe = self::$NUM_RE;
 
         $hts = fn () => $this->pivotSql(self::$P_ALL, ['tested' => 'hts_tested', 'test_date' => 'hts_hiv_date', 'result' => 'hts_hiv_result', 'art_init' => 'hts_art_init']);
-        $art = fn () => $this->pivotSql(self::$P_ART, [
+        $art = fn () => $this->pivotSql(self::$P_ALL, [
             'visit_date' => 'art_review_date', 'next_visit' => 'art_next_review_date', 'outcome' => 'art_final_outcome',
             'vl_done' => 'art_viral_load', 'vl_date' => 'art_vl_collect_date', 'vl_detected' => 'art_vl_detected', 'vl_result' => 'art_vl_result',
         ]);
-        $artr = fn () => $this->pivotSql(self::$P_ART, ['referred' => 'artr_referred', 'reg_date' => 'artr_registration_date']);
-        $ancr = fn () => $this->pivotSql(self::$P_FCH, ['reg_date' => 'ancr_date', 'first_booking' => 'ancr_first_booking', 'hiv_prior' => 'ancr_hiv_prior', 'contact_no' => 'ancr_contact_number']);
-        $anc = fn () => $this->pivotSql(self::$P_FCH, ['visit_date' => 'anc_date', 'contact_no' => 'anc_contact_number']);
-        $pncr = fn () => $this->pivotSql(self::$P_FCH, ['reg_date' => 'pncr_date', 'place' => 'pncr_place_of_delivery', 'baby_dob' => 'pncr_date_of_birth']);
-        $pncm = fn () => $this->pivotSql(self::$P_FCH, ['visit_date' => 'pncm_visit_date', 'follow_up' => 'pncm_mother_follow_up', 'hiv_tested' => 'pncm_hiv_tested']);
-        $pncb = fn () => $this->pivotSql(self::$P_FCH, ['visit_date' => 'pncb_visit_date', 'infant_status' => 'pncb_infant_follow_ups']);
-        $fp = fn () => $this->pivotSql(self::$P_FCH, ['visit_date' => 'fp_date', 'category' => 'fp_client_category']);
+        $artr = fn () => $this->pivotSql(self::$P_ALL, ['referred' => 'artr_referred', 'reg_date' => 'artr_registration_date']);
+        $ancr = fn () => $this->pivotSql(self::$P_ALL, ['reg_date' => 'ancr_date', 'first_booking' => 'ancr_first_booking', 'hiv_prior' => 'ancr_hiv_prior', 'contact_no' => 'ancr_contact_number']);
+        $anc = fn () => $this->pivotSql(self::$P_ALL, ['visit_date' => 'anc_date', 'contact_no' => 'anc_contact_number']);
+        $pncr = fn () => $this->pivotSql(self::$P_ALL, ['reg_date' => 'pncr_date', 'place' => 'pncr_place_of_delivery', 'baby_dob' => 'pncr_date_of_birth']);
+        $pncm = fn () => $this->pivotSql(self::$P_ALL, ['visit_date' => 'pncm_visit_date', 'follow_up' => 'pncm_mother_follow_up', 'hiv_tested' => 'pncm_hiv_tested']);
+        $pncb = fn () => $this->pivotSql(self::$P_ALL, ['visit_date' => 'pncb_visit_date', 'infant_status' => 'pncb_infant_follow_ups']);
+        $fp = fn () => $this->pivotSql(self::$P_ALL, ['visit_date' => 'fp_date', 'category' => 'fp_client_category']);
         $prepr = fn () => $this->pivotSql(self::$P_ALL, ['reg_date' => 'prepr_date', 'screened' => 'prepr_screened', 'visit_status' => 'prepr_visit_status', 'initiate' => 'prepr_prep_initiate', 'start_date' => 'prepr_prep_start_date']);
         $mh = fn () => $this->pivotSql(self::$P_ALL, ['screened' => 'mh_screening_tools', 'result' => 'mh_screening_results', 'managed' => 'mh_management_outcome', 'substance' => 'mh_substance_identified']);
         $sti = fn () => $this->pivotSql(self::$P_ALL, ['visit_date' => 'sti_visit_date', 'alt_date' => 'sti_date', 'treated' => 'sti_patient_treated']);
         $pls = fn () => $this->pivotSql(self::$P_ALL, ['session_date' => 'pls_date', 'conducted' => 'pls_session_conducted', 'sessions' => 'pls_number', 'reached' => 'pls_ado_number', 'support' => 'pls_support_conducted']);
-        $ld = fn () => $this->pivotSql(self::$P_FCH, [
+        $ld = fn () => $this->pivotSql(self::$P_ALL, [
             'visit_date' => 'ld_date', 'outcome' => 'ld_preg_outcome', 'place' => 'ld_delivery_place_2',
             'mother_die' => 'ld_mother_die', 'newborn_die' => 'ld_newborn_die', 'pnc' => 'ld_postnatal_care',
             'hiv_status' => 'ld_hiv_status', 'breastfeeding' => 'ld_breastfeeding', 'hiv_test_bf' => 'ld_hiv_test_bf',
@@ -498,8 +498,8 @@ class ReportService
             GROUP BY record, event_id, COALESCE(instance, 1), project_id";
         $stiHiv = fn () => $this->pivotSql(self::$P_ALL, ['tested' => 'sti_hiv_test', 'test_date' => 'sti_visit_date', 'result' => 'sti_hiv_test_result']);
         $prepHiv = fn () => $this->pivotSql(self::$P_ALL, ['tested' => 'prep_hiv_test', 'test_date' => 'prep_visit_date', 'result' => 'prep_hiv_test_results']);
-        $ancHiv = fn () => $this->pivotSql(self::$P_FCH, ['result' => 'anc_hiv_test_results', 'test_date' => 'anc_date']);
-        $artrHiv = fn () => $this->pivotSql(self::$P_ART, ['first_test' => 'artr_first_hiv_test']);
+        $ancHiv = fn () => $this->pivotSql(self::$P_ALL, ['result' => 'anc_hiv_test_results', 'test_date' => 'anc_date']);
+        $artrHiv = fn () => $this->pivotSql(self::$P_ALL, ['first_test' => 'artr_first_hiv_test']);
         $allTests = fn (string $where) => "SELECT record, test_date AS ref_date, instrument FROM (
                 SELECT record, test_date, result, 'HTS register' AS instrument FROM ({$hts()}) a WHERE a.tested = '1'
                 UNION ALL
