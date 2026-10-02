@@ -375,7 +375,6 @@ class IndicatorService
                         AND DATEDIFF(m.visit_date, r.baby_dob) BETWEEN 0 AND 3)
             SELECT
               COUNT(CASE WHEN {$this->periodCond('p.reg_date')} AND {$this->ageCond('p.reg_date')} THEN 1 END) AS deliveries,
-              COUNT(CASE WHEN p.place = '1' AND {$this->periodCond('p.reg_date')} AND {$this->ageCond('p.reg_date')} THEN 1 END) AS institutional,
               COUNT(CASE WHEN p.place IN ('2','3') AND {$this->periodCond('p.reg_date')} AND {$this->ageCond('p.reg_date')} THEN 1 END) AS non_institutional,
               COUNT(CASE WHEN p.place = '3' AND {$this->periodCond('p.reg_date')} AND {$this->ageCond('p.reg_date')} THEN 1 END) AS bba,
               COUNT(CASE WHEN {$this->periodCond('p.reg_date')} AND {$this->ageCond('p.reg_date')} AND c.max_contact >= 8 THEN 1 END) AS anc8,
@@ -422,9 +421,7 @@ class IndicatorService
         return [
             'anc_new' => ['value' => (int) $ancRow->new_bookings],
             'anc_8plus' => $this->rate((int) $pncrRow->anc8, (int) $pncrRow->deliveries),
-            'births_inst' => ['value' => (int) $pncrRow->institutional],
             'births_home' => ['value' => (int) $pncrRow->non_institutional, 'extra' => ['bba' => (int) $pncrRow->bba]],
-            'stillbirths' => ['value' => null],
             'ld_births_inst' => ['value' => (int) $ldRow->births_inst],
             'ld_births_home' => ['value' => (int) $ldRow->births_home, 'extra' => ['bba' => (int) $ldRow->bba]],
             'ld_stillbirths' => ['value' => (int) $ldRow->stillbirths],

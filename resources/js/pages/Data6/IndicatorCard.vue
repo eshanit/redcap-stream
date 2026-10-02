@@ -27,7 +27,7 @@ const props = withDefaults(
          * Paired-card styling, deliberately loud so the second card is never
          * mistaken for (or confused with) the one next to it:
          *  - 'proxy': an interim/pre-go-live stand-in for the real indicator
-         *    it sits beside (e.g. AHP020a next to AHP020) - amber wash,
+         *    it sits beside (e.g. AHP023a next to AHP023) - amber wash,
          *    dashed border, hatch pattern.
          *  - 'supplementary': a permanent, equally-valid alternate
          *    calculation shown alongside the official one, not a temporary

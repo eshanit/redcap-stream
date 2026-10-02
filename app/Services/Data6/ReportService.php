@@ -640,11 +640,8 @@ class ReportService
                               FROM (SELECT record, contact_no FROM ({$ancr()}) a UNION ALL SELECT record, contact_no FROM ({$anc()}) b) u
                               GROUP BY record
                           ) c ON c.record = p.record"],
-            'births_inst' => ['mode' => 'row',
-                'sql' => "SELECT p.record, p.reg_date AS ref_date FROM ({$pncr()}) p WHERE p.place = '1'"],
             'births_home' => ['mode' => 'row',
                 'sql' => "SELECT p.record, p.reg_date AS ref_date FROM ({$pncr()}) p WHERE p.place IN ('2','3')"],
-            'stillbirths' => null,
             'ld_births_inst' => ['mode' => 'row',
                 'sql' => "SELECT p.record, p.visit_date AS ref_date FROM ({$ld()}) p WHERE p.outcome = '{$ldCodes['preg_outcome_live']}' AND p.place = '{$ldCodes['place_institutional']}'"],
             'ld_births_home' => ['mode' => 'row',

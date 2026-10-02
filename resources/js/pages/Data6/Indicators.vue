@@ -15,7 +15,7 @@ interface IndicatorMeta {
     id: number;
     code?: string;
     /** Set only on an interim ("...a") proxy: the code of the real
-     *  indicator it stands in for, e.g. AHP020a -> AHP020. Drives the
+     *  indicator it stands in for, e.g. AHP023a -> AHP023. Drives the
      *  side-by-side pairing on this page - see displayItems below. */
     pairs_with?: string | null;
     key: string;
@@ -127,7 +127,7 @@ function fmt(n: number | null | undefined): string {
 // linked to via `pairs_with`, so the two are never confused for one card.
 // Two kinds share this mechanism, told apart by the linked indicator's own
 // `status` (see variantFor below):
-//  - interim proxy (status proxy/blocked, e.g. AHP020a -> AHP020): a
+//  - interim proxy (status proxy/blocked, e.g. AHP023a -> AHP023): a
 //    temporary pre-go-live stand-in - amber, dashed styling in IndicatorCard.
 //  - supplementary (status active, e.g. AHP004a -> AHP004): a permanent,
 //    equally-valid alternate definition shown alongside the official one,
