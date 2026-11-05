@@ -178,7 +178,9 @@ const trendOptions = computed(() => ({
     },
     colors: [seriesBlue],
     stroke: { width: 2.5, curve: 'straight' },
-    fill: isPercent.value ? undefined : { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.35, opacityTo: 0.05, stops: [0, 100] } },
+    fill: isPercent.value
+        ? { type: 'solid', opacity: 1 }
+        : { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.35, opacityTo: 0.05, stops: [0, 100] } },
     markers: { size: 4, strokeWidth: 2, strokeColors: '#fcfcfb', hover: { size: 6 } },
     dataLabels: {
         enabled: true,
