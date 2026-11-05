@@ -14,8 +14,11 @@ class SyncData6Tracking extends Command
     public function handle(ProjectData6Service $service): int
     {
         $project = $this->option('project');
+        // allProjectIds() (not data6ProjectIds()) so a full sync also picks
+        // up the centralised AHP-Demographics project (82) - see
+        // ProjectData6Service::allProjectIds()'s docblock.
         $projectIds = $project === null
-            ? $service->data6ProjectIds()
+            ? $service->allProjectIds()
             : [(int) $project];
 
         $records = $service->rows($projectIds)

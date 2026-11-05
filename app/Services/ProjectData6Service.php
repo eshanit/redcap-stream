@@ -5,11 +5,10 @@ namespace App\Services;
 use App\Models\Data6Encounter;
 use App\Models\Data6Patient;
 use App\Models\Data6SourceRecord;
-use App\Models\ProjectData6;
 use App\Models\ProjectEventMetadata;
 use App\Services\Data6\QueryFragments;
 use Carbon\Carbon;
-use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 
 class ProjectData6Service
@@ -68,22 +67,77 @@ class ProjectData6Service
         return config('redcap.data6_unit.project_ids', array_values(config('redcap.data6_projects', [])));
     }
 
+    /**
+     * Every project this reporting unit draws from: the service projects
+     * plus the centralised demographics-only project (82) - as opposed to
+     * data6ProjectIds(), which stays service-projects-only since it drives
+     * the selectable project tabs/filter and 82 has no services to show a
+     * tab for. Used for the unit's total record count and by data6:sync.
+     */
+    public function allProjectIds(): array
+    {
+        return [...$this->data6ProjectIds(), ...config('redcap.data6_unit.demographics_project_ids', [82])];
+    }
+
+    /** Which physical table a project's long-format rows live in - see allProjectIds()'s docblock. */
+    private function tableFor(int $projectId): string
+    {
+        return in_array($projectId, config('redcap.data6_unit.demographics_project_ids', [82]), true)
+            ? 'redcap_data5'
+            : 'redcap_data6';
+    }
+
+    /**
+     * Every long-format row for the given projects, as one flat builder -
+     * regardless of which physical table each project's data actually
+     * lives in (see tableFor()). Projects sharing a table are queried
+     * together with a plain WHERE; projects split across tables are each
+     * queried separately and combined with UNION ALL. The common case -
+     * one project, as used throughout syncRecord() - stays a single plain
+     * query with no union/subquery overhead.
+     */
     public function rows(?array $projectIds = null): Builder
     {
-        $projectIds ??= $this->data6ProjectIds();
+        $projectIds ??= $this->allProjectIds();
 
-        return ProjectData6::query()->forProjects($projectIds);
+        $byTable = [];
+        foreach ($projectIds as $id) {
+            $byTable[$this->tableFor((int) $id)][] = (int) $id;
+        }
+
+        $queries = array_map(
+            fn ($table, $ids) => DB::table($table)
+                ->select('project_id', 'record', 'field_name', 'value', 'event_id', 'instance')
+                ->whereIn('project_id', $ids),
+            array_keys($byTable),
+            $byTable,
+        );
+
+        if (count($queries) === 1) {
+            return $queries[0];
+        }
+
+        $combined = array_shift($queries);
+        foreach ($queries as $query) {
+            $combined->unionAll($query);
+        }
+
+        // Wrapped as a derived table so callers can freely chain their own
+        // select/where/groupBy afterwards (e.g. recordsByProject()) exactly
+        // as they could against a single real table - a raw UNION ALL
+        // can't safely take further clauses appended directly onto it.
+        return DB::query()->fromSub($combined, 'rows');
     }
 
     public function recordRows(string $record, ?array $projectIds = null): Builder
     {
-        return $this->rows($projectIds)->forRecord($record);
+        return $this->rows($projectIds)->where('record', $record);
     }
 
     public function uniqueRecordCount(?array $projectIds = null): int
     {
         return $this->rows($projectIds)
-            ->distinct('record')
+            ->distinct()
             ->count('record');
     }
 
