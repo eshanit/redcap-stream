@@ -156,6 +156,20 @@ const trendChartRef = ref<ApexChartHandle | null>(null);
 // there (dataviz skill's #1 anti-pattern), so two measures of different
 // scale get two separate presentations, not one chart with two axes.
 const trendChartType = computed(() => (isPercent.value ? 'line' : 'area'));
+
+// A fixed 0-100 axis flattens a low-rate indicator (e.g. a handful of
+// percent) into an invisible line hugging the bottom. Scale to the data's
+// own peak instead, with 25% headroom, rounded to a nice step - still
+// capped at 100 so a genuinely high rate doesn't overflow the chart.
+function scaledMax(values: number[]): number {
+    const peak = Math.max(0, ...values);
+    if (peak <= 0) return 10;
+
+    const step = peak <= 20 ? 5 : 10;
+
+    return Math.min(100, Math.ceil((peak * 1.25) / step) * step);
+}
+const trendMax = computed(() => (isPercent.value ? scaledMax(monthTrend.value.map((b) => b.value ?? 0)) : undefined));
 const cumulativeText = computed(() => {
     const series = cumulativeSeries.value;
     const last = [...series].reverse().find((v) => v !== null);
@@ -190,7 +204,7 @@ const trendOptions = computed(() => ({
     },
     yaxis: {
         labels: { style: { colors: inkMuted, fontSize: '11px' } },
-        min: 0, max: isPercent.value ? 100 : undefined, forceNiceScale: true,
+        min: 0, max: isPercent.value ? trendMax.value : undefined, forceNiceScale: true,
     },
     legend: { show: false },
     tooltip: {
@@ -305,6 +319,9 @@ const districtSex = computed(() => dive.value?.by?.district_sex ?? []);
 const servicePointSex = computed(() => dive.value?.by?.service_point_sex ?? []);
 const showSexTrend = computed(() => hasSexDim.value && monthBySex.value.length > 0);
 const sexChartRef = ref<ApexChartHandle | null>(null);
+const sexTrendMax = computed(() => (isPercent.value
+    ? scaledMax(monthBySex.value.flatMap((b) => [b.male ?? 0, b.female ?? 0]))
+    : undefined));
 
 const sexTrendOptions = computed(() => ({
     chart: { type: 'line', toolbar: { show: false }, fontFamily: 'system-ui, sans-serif', animations: { enabled: false } },
@@ -319,7 +336,7 @@ const sexTrendOptions = computed(() => ({
         axisBorder: { color: '#c3c2b7' },
         axisTicks: { show: false },
     },
-    yaxis: { labels: { style: { colors: inkMuted, fontSize: '11px' } }, forceNiceScale: true, min: 0, max: isPercent.value ? 100 : undefined },
+    yaxis: { labels: { style: { colors: inkMuted, fontSize: '11px' } }, forceNiceScale: true, min: 0, max: sexTrendMax.value },
     legend: { show: true, position: 'top', horizontalAlign: 'left', fontSize: '12px', labels: { colors: '#52514e' }, markers: { size: 6 } },
     tooltip: { shared: true, intersect: false, y: { formatter: (v: number | null) => (v === null ? '—' : isPercent.value ? `${v}%` : v.toLocaleString()) } },
 }));
@@ -409,7 +426,7 @@ function hbarOptions(items: Bucket[]) {
         plotOptions: { bar: { horizontal: true, barHeight: '55%', borderRadius: 4, borderRadiusApplication: 'end' } },
         dataLabels: { enabled: true, offsetX: 26, style: { colors: [inkSecondary], fontSize: '11px' }, formatter: (v: number) => (isPercent.value ? `${v}%` : v.toLocaleString()) },
         grid: { borderColor: gridHairline, yaxis: { lines: { show: false } } },
-        xaxis: { categories: items.map((b) => b.label), labels: { style: { colors: inkMuted, fontSize: '11px' } }, axisBorder: { color: '#c3c2b7' }, axisTicks: { show: false }, max: isPercent.value ? 100 : undefined },
+        xaxis: { categories: items.map((b) => b.label), labels: { style: { colors: inkMuted, fontSize: '11px' } }, axisBorder: { color: '#c3c2b7' }, axisTicks: { show: false }, max: isPercent.value ? scaledMax(items.map((b) => b.value ?? 0)) : undefined },
         yaxis: { labels: { style: { colors: inkSecondary, fontSize: '12px' } } },
         legend: { show: false },
         tooltip: { y: { formatter: (v: number, opts: { dataPointIndex: number }) => {
@@ -427,7 +444,7 @@ function hbarSexOptions(items: SexBucket[]) {
         plotOptions: { bar: { horizontal: true, barHeight: '70%', borderRadius: 4, borderRadiusApplication: 'end' } },
         dataLabels: { enabled: false },
         grid: { borderColor: gridHairline, yaxis: { lines: { show: false } } },
-        xaxis: { categories: items.map((b) => b.label), labels: { style: { colors: inkMuted, fontSize: '11px' } }, axisBorder: { color: '#c3c2b7' }, axisTicks: { show: false }, max: isPercent.value ? 100 : undefined },
+        xaxis: { categories: items.map((b) => b.label), labels: { style: { colors: inkMuted, fontSize: '11px' } }, axisBorder: { color: '#c3c2b7' }, axisTicks: { show: false }, max: isPercent.value ? scaledMax(items.flatMap((b) => [b.male ?? 0, b.female ?? 0])) : undefined },
         yaxis: { labels: { style: { colors: inkSecondary, fontSize: '12px' } } },
         legend: { show: true, position: 'top', horizontalAlign: 'left', fontSize: '12px', labels: { colors: '#52514e' }, markers: { size: 6 } },
         tooltip: { shared: true, intersect: false, y: { formatter: (v: number | null) => (v === null ? '—' : isPercent.value ? `${v}%` : v.toLocaleString()) } },
@@ -445,7 +462,7 @@ function hbarAgeOptions(items: AgeBucket[]) {
         plotOptions: { bar: { horizontal: true, barHeight: '70%', borderRadius: 4, borderRadiusApplication: 'end' } },
         dataLabels: { enabled: false },
         grid: { borderColor: gridHairline, yaxis: { lines: { show: false } } },
-        xaxis: { categories: items.map((b) => b.label), labels: { style: { colors: inkMuted, fontSize: '11px' } }, axisBorder: { color: '#c3c2b7' }, axisTicks: { show: false }, max: isPercent.value ? 100 : undefined },
+        xaxis: { categories: items.map((b) => b.label), labels: { style: { colors: inkMuted, fontSize: '11px' } }, axisBorder: { color: '#c3c2b7' }, axisTicks: { show: false }, max: isPercent.value ? scaledMax(items.flatMap((b) => [b.a10_14 ?? 0, b.a15_19 ?? 0])) : undefined },
         yaxis: { labels: { style: { colors: inkSecondary, fontSize: '12px' } } },
         legend: { show: true, position: 'top', horizontalAlign: 'left', fontSize: '12px', labels: { colors: '#52514e' }, markers: { size: 6 } },
         tooltip: { shared: true, intersect: false, y: { formatter: (v: number | null) => (v === null ? '—' : isPercent.value ? `${v}%` : v.toLocaleString()) } },
