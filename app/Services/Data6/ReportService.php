@@ -465,7 +465,7 @@ class ReportService
             'vl_done' => 'art_viral_load', 'vl_date' => 'art_vl_collect_date', 'vl_detected' => 'art_vl_detected', 'vl_result' => 'art_vl_result',
         ]);
         $artr = fn () => $this->pivotSql(self::$P_ALL, ['referred' => 'artr_referred', 'reg_date' => 'artr_registration_date']);
-        $ancr = fn () => $this->pivotSql(self::$P_ALL, ['reg_date' => 'ancr_date', 'first_booking' => 'ancr_first_booking', 'hiv_prior' => 'ancr_hiv_prior', 'contact_no' => 'ancr_contact_number']);
+        $ancr = fn () => $this->pivotSql(self::$P_ALL, ['reg_date' => 'ancr_date', 'first_booking' => 'ancr_first_booking', 'access' => 'ancr_access', 'hiv_prior' => 'ancr_hiv_prior', 'contact_no' => 'ancr_contact_number']);
         $anc = fn () => $this->pivotSql(self::$P_ALL, ['visit_date' => 'anc_date', 'contact_no' => 'anc_contact_number']);
         $pncr = fn () => $this->pivotSql(self::$P_ALL, ['reg_date' => 'pncr_date', 'place' => 'pncr_place_of_delivery', 'baby_dob' => 'pncr_date_of_birth']);
         $pncm = fn () => $this->pivotSql(self::$P_ALL, ['visit_date' => 'pncm_visit_date', 'follow_up' => 'pncm_mother_follow_up', 'hiv_tested' => 'pncm_hiv_tested']);
@@ -633,23 +633,22 @@ class ReportService
 
             'anc_new' => ['mode' => 'distinct',
                 'sql' => "SELECT record, reg_date AS ref_date FROM ({$ancr()}) p WHERE p.first_booking = '1'"],
-            // AHP019: no longer gated on a recorded delivery (pncr) - counted
-            // the moment the contact number (ancr or continuing anc visits)
-            // first reaches 8, regardless of pregnancy outcome. Must stay
+            // AHP019: no longer gated on a recorded delivery (pncr).
+            // Denominator is everyone who accessed ANC in the period
+            // (ancr_access = Yes, dated by ancr_date); flag is whether that
+            // same client's highest recorded contact number (ancr or
+            // continuing anc visits, any time) reached 8. Must stay
             // consistent with the identical query in
             // IndicatorService::mnchIndicators(). 2026-11-05, per M&E.
-            'anc_8plus' => ['mode' => 'distinct',
-                'sql' => "
-                    WITH visits AS (
-                        SELECT record, reg_date AS visit_date, contact_no FROM ({$ancr()}) a
-                        UNION ALL
-                        SELECT record, visit_date, contact_no FROM ({$anc()}) b
-                    )
-                    SELECT record, MIN(visit_date) AS ref_date
-                    FROM visits
-                    WHERE contact_no REGEXP '{$numRe}' AND CAST(contact_no AS UNSIGNED) >= 8
-                      AND visit_date REGEXP '{$dateRe}'
-                    GROUP BY record"],
+            'anc_8plus' => ['mode' => 'rate_flag',
+                'sql' => "SELECT p.record, p.reg_date AS ref_date, CASE WHEN c.max_contact >= 8 THEN 1 ELSE 0 END AS flag
+                          FROM ({$ancr()}) p
+                          LEFT JOIN (
+                              SELECT record, MAX(CASE WHEN contact_no REGEXP '{$numRe}' THEN CAST(contact_no AS UNSIGNED) ELSE 0 END) AS max_contact
+                              FROM (SELECT record, contact_no FROM ({$ancr()}) a UNION ALL SELECT record, contact_no FROM ({$anc()}) b) u
+                              GROUP BY record
+                          ) c ON c.record = p.record
+                          WHERE p.access = 'Y'"],
             'births_home' => ['mode' => 'row',
                 'sql' => "SELECT p.record, p.reg_date AS ref_date FROM ({$pncr()}) p WHERE p.place IN ('2','3')"],
             'ld_births_inst' => ['mode' => 'row',

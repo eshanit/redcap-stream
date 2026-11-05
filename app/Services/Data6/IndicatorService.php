@@ -338,7 +338,7 @@ class IndicatorService
         [$demog, $bind] = $this->demogSql();
 
         $ancr = $this->pivotSql(self::$P_ALL, [
-            'reg_date' => 'ancr_date', 'first_booking' => 'ancr_first_booking',
+            'reg_date' => 'ancr_date', 'first_booking' => 'ancr_first_booking', 'access' => 'ancr_access',
             'hiv_prior' => 'ancr_hiv_prior', 'contact_no' => 'ancr_contact_number',
         ]);
         $anc = $this->pivotSql(self::$P_ALL, ['visit_date' => 'anc_date', 'contact_no' => 'anc_contact_number']);
@@ -384,26 +384,28 @@ class IndicatorService
 
         // AHP019: no longer gated on having a recorded delivery (pncr) - a
         // client can reach 8+ ANC contacts well before she delivers, or her
-        // delivery may never get logged in the PNC register. Counted the
-        // moment her contact number (ancr or continuing anc visits) first
-        // reaches 8, regardless of pregnancy outcome. 2026-11-05, per M&E.
+        // delivery may never get logged in the PNC register. Denominator is
+        // now everyone who accessed ANC in the period (ancr_access = Yes,
+        // dated by ancr_date); numerator is those among them whose highest
+        // recorded contact number (ancr or continuing anc visits, any time)
+        // reached 8. 2026-11-05, per M&E.
         $anc8Row = $this->one("
-            WITH demog AS ({$demog}),
-            visits AS (
-                SELECT record, reg_date AS visit_date, contact_no FROM ({$ancr}) a
-                UNION ALL
-                SELECT record, visit_date, contact_no FROM ({$anc}) b
-            ),
-            qualifying AS (
-                SELECT record, MIN(visit_date) AS ref_date
-                FROM visits
-                WHERE contact_no REGEXP '".self::$NUM_RE."' AND CAST(contact_no AS UNSIGNED) >= 8
-                  AND visit_date REGEXP '".self::$DATE_RE."'
-                GROUP BY record
+            WITH demog AS ({$demog}), ancrp AS ({$ancr}),
+            contacts AS (
+                SELECT record, MAX(CASE WHEN contact_no REGEXP '".self::$NUM_RE."' THEN CAST(contact_no AS UNSIGNED) ELSE 0 END) AS max_contact
+                FROM (
+                    SELECT record, contact_no FROM ({$ancr}) a
+                    UNION ALL
+                    SELECT record, contact_no FROM ({$anc}) b
+                ) c GROUP BY record
             )
-            SELECT COUNT(DISTINCT CASE WHEN {$this->periodCond('q.ref_date')} AND {$this->ageCond('q.ref_date')} THEN q.record END) AS anc8plus
-            FROM qualifying q
-            JOIN demog d ON d.record = q.record
+            SELECT
+              COUNT(DISTINCT p.record) AS accessed,
+              COUNT(DISTINCT CASE WHEN c.max_contact >= 8 THEN p.record END) AS anc8plus
+            FROM ancrp p
+            JOIN demog d ON d.record = p.record
+            LEFT JOIN contacts c ON c.record = p.record
+            WHERE p.access = 'Y' AND {$this->periodCond('p.reg_date')} AND {$this->ageCond('p.reg_date')}
         ", $bind);
 
         $deathRow = $this->one("
@@ -441,7 +443,7 @@ class IndicatorService
 
         return [
             'anc_new' => ['value' => (int) $ancRow->new_bookings],
-            'anc_8plus' => ['value' => (int) $anc8Row->anc8plus],
+            'anc_8plus' => $this->rate((int) $anc8Row->anc8plus, (int) $anc8Row->accessed),
             'births_home' => ['value' => (int) $pncrRow->non_institutional, 'extra' => ['bba' => (int) $pncrRow->bba]],
             'ld_births_inst' => ['value' => (int) $ldRow->births_inst],
             'ld_births_home' => ['value' => (int) $ldRow->births_home, 'extra' => ['bba' => (int) $ldRow->bba]],
