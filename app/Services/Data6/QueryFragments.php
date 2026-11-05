@@ -27,7 +27,23 @@ trait QueryFragments
 
     protected static string $NUM_RE = '^[0-9]+$';
 
-    /** Demographics dimension, pre-filtered by district/facility/gender. */
+    /**
+     * Demographics dimension, pre-filtered by district/facility/gender.
+     *
+     * Demographics used to be captured per-project (76/78/79, in
+     * redcap_data6) - a dedicated AHP-Demographics project (82) now
+     * centralises new data capture, and it landed in a different physical
+     * table (redcap_data5), not just a different project_id, since REDCap
+     * assigns a project's data table independently of which app project it
+     * belongs to. Both sources are read and combined per record - the new
+     * project wins on conflict (confirmed 2026-11-05: it's the live,
+     * current source going forward), the old projects are the fallback for
+     * records not yet re-registered there, and either source alone is
+     * enough to make a record visible. 423+ clients with real, recent
+     * service visits had demographics ONLY in project 82 before this fix -
+     * invisible to every indicator, since the age/sex/district/facility
+     * join is how a client is counted at all.
+     */
     protected function demogSql(): array
     {
         $having = [];
@@ -38,17 +54,40 @@ trait QueryFragments
                 $bindings[] = $val;
             }
         }
-        $havingSql = $having === [] ? '' : 'HAVING '.implode(' AND ', $having);
+        $whereSql = $having === [] ? '' : 'WHERE '.implode(' AND ', $having);
 
-        $sql = "SELECT record,
-                       MAX(CASE WHEN field_name = 'demog_dateofbirth' THEN value END) AS dob,
+        $fields = "'demog_dateofbirth', 'demog_gender', 'demog_district', 'demog_facility'";
+        $cases = "MAX(CASE WHEN field_name = 'demog_dateofbirth' THEN value END) AS dob,
                        MAX(CASE WHEN field_name = 'demog_gender' THEN value END) AS gender,
                        MAX(CASE WHEN field_name = 'demog_district' THEN value END) AS district,
-                       MAX(CASE WHEN field_name = 'demog_facility' THEN value END) AS facility
+                       MAX(CASE WHEN field_name = 'demog_facility' THEN value END) AS facility";
+
+        $old = "SELECT record, {$cases}
                 FROM redcap_data6
                 WHERE project_id IN (".self::$P_ALL.")
-                  AND field_name IN ('demog_dateofbirth', 'demog_gender', 'demog_district', 'demog_facility')
-                GROUP BY record {$havingSql}";
+                  AND field_name IN ({$fields})
+                GROUP BY record";
+        $new = "SELECT record, {$cases}
+                FROM redcap_data5
+                WHERE project_id = 82
+                  AND field_name IN ({$fields})
+                GROUP BY record";
+
+        $sql = "SELECT * FROM (
+                    SELECT
+                      r.record,
+                      COALESCE(n.dob, o.dob) AS dob,
+                      COALESCE(n.gender, o.gender) AS gender,
+                      COALESCE(n.district, o.district) AS district,
+                      COALESCE(n.facility, o.facility) AS facility
+                    FROM (
+                        SELECT record FROM redcap_data6 WHERE project_id IN (".self::$P_ALL.") AND field_name IN ({$fields})
+                        UNION
+                        SELECT record FROM redcap_data5 WHERE project_id = 82 AND field_name IN ({$fields})
+                    ) r
+                    LEFT JOIN ({$old}) o ON o.record = r.record
+                    LEFT JOIN ({$new}) n ON n.record = r.record
+                ) demog {$whereSql}";
 
         return [$sql, $bindings];
     }

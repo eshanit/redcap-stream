@@ -62,11 +62,18 @@ class IndicatorService
 
     public function filterOptions(): array
     {
+        // Demographics now also come from the AHP-Demographics project (82,
+        // in redcap_data5) - see demogSql()'s docblock in QueryFragments.
+        // This dropdown just needs the full set of known values, so a plain
+        // union of both sources (no new-wins precedence needed) is enough.
         $rows = DB::select(
-            "SELECT field_name, value, COUNT(DISTINCT record) AS n
-             FROM redcap_data6
-             WHERE project_id IN (".self::$P_ALL.")
-               AND field_name IN ('demog_district', 'demog_facility')
+            "SELECT field_name, value, COUNT(DISTINCT record) AS n FROM (
+                SELECT field_name, value, record FROM redcap_data6
+                WHERE project_id IN (".self::$P_ALL.") AND field_name IN ('demog_district', 'demog_facility')
+                UNION ALL
+                SELECT field_name, value, record FROM redcap_data5
+                WHERE project_id = 82 AND field_name IN ('demog_district', 'demog_facility')
+            ) d
              GROUP BY field_name, value ORDER BY value"
         );
 

@@ -72,22 +72,49 @@ class SummaryService
         ];
     }
 
+    /**
+     * Demographics now also come from the AHP-Demographics project (82, in
+     * redcap_data5) - see demogSql()'s docblock in QueryFragments.php for
+     * why it's a different physical table, not just a different project_id.
+     * Both sources are combined per record; the new project wins on
+     * conflict (confirmed 2026-11-05). All the fields below exist on
+     * project 82 too.
+     */
     private function demogSql(): string
     {
-        return "SELECT record,
-                       MAX(CASE WHEN field_name = 'demog_dateofbirth' THEN value END) AS dob,
+        $fields = "'demog_dateofbirth', 'demog_gender', 'demog_district', 'demog_facility',
+                   'demog_client_profile', 'demog_education', 'demog_marital_status', 'demog_have_contact'";
+        $cases = "MAX(CASE WHEN field_name = 'demog_dateofbirth' THEN value END) AS dob,
                        MAX(CASE WHEN field_name = 'demog_gender' THEN value END) AS gender,
                        MAX(CASE WHEN field_name = 'demog_district' THEN value END) AS district,
                        MAX(CASE WHEN field_name = 'demog_facility' THEN value END) AS facility,
                        MAX(CASE WHEN field_name = 'demog_client_profile' THEN value END) AS profile,
                        MAX(CASE WHEN field_name = 'demog_education' THEN value END) AS education,
                        MAX(CASE WHEN field_name = 'demog_marital_status' THEN value END) AS marital,
-                       MAX(CASE WHEN field_name = 'demog_have_contact' THEN value END) AS have_contact
-                FROM redcap_data6
-                WHERE project_id IN (".self::P_ALL.")
-                  AND field_name IN ('demog_dateofbirth', 'demog_gender', 'demog_district', 'demog_facility',
-                                     'demog_client_profile', 'demog_education', 'demog_marital_status', 'demog_have_contact')
-                GROUP BY record";
+                       MAX(CASE WHEN field_name = 'demog_have_contact' THEN value END) AS have_contact";
+
+        $old = "SELECT record, {$cases} FROM redcap_data6
+                WHERE project_id IN (".self::P_ALL.") AND field_name IN ({$fields}) GROUP BY record";
+        $new = "SELECT record, {$cases} FROM redcap_data5
+                WHERE project_id = 82 AND field_name IN ({$fields}) GROUP BY record";
+
+        return "SELECT
+                  r.record,
+                  COALESCE(n.dob, o.dob) AS dob,
+                  COALESCE(n.gender, o.gender) AS gender,
+                  COALESCE(n.district, o.district) AS district,
+                  COALESCE(n.facility, o.facility) AS facility,
+                  COALESCE(n.profile, o.profile) AS profile,
+                  COALESCE(n.education, o.education) AS education,
+                  COALESCE(n.marital, o.marital) AS marital,
+                  COALESCE(n.have_contact, o.have_contact) AS have_contact
+                FROM (
+                    SELECT record FROM redcap_data6 WHERE project_id IN (".self::P_ALL.") AND field_name IN ({$fields})
+                    UNION
+                    SELECT record FROM redcap_data5 WHERE project_id = 82 AND field_name IN ({$fields})
+                ) r
+                LEFT JOIN ({$old}) o ON o.record = r.record
+                LEFT JOIN ({$new}) n ON n.record = r.record";
     }
 
     private function headline(string $demog): array
