@@ -482,7 +482,14 @@ const statusBadges: Record<string, { label: string; cls: string }> = {
 <template>
     <Head :title="`${meta.code} deep dive`" />
     <AppLayout :breadcrumbs="breadcrumbs">
-        <div class="min-h-screen bg-[#f5f3ee] text-[#173b3b] print:bg-white print:text-black">
+        <!-- Inertia reuses this component across /data6/indicators/{code}
+             navigations (same route, same page component), so without a key
+             every chart below just gets patched in place. ApexCharts can't
+             reconcile a type/series-shape change that way (e.g. percent vs
+             count indicator, or a different series count) and throws deep
+             inside its internals - keying on the indicator code forces a
+             clean remount instead. -->
+        <div :key="meta.code" class="min-h-screen bg-[#f5f3ee] text-[#173b3b] print:bg-white print:text-black">
             <div class="mx-auto max-w-[1300px] px-5 py-7 sm:px-8 lg:px-10 print:max-w-none print:px-0 print:py-0">
 
                 <Link href="/data6/indicators" class="inline-flex items-center gap-1.5 text-xs font-bold text-[#55706a] transition hover:text-[#173b3b] print:hidden">
