@@ -633,13 +633,23 @@ class ReportService
 
             'anc_new' => ['mode' => 'distinct',
                 'sql' => "SELECT record, reg_date AS ref_date FROM ({$ancr()}) p WHERE p.first_booking = '1'"],
-            'anc_8plus' => ['mode' => 'rate_flag',
-                'sql' => $deliveries(", CASE WHEN c.max_contact >= 8 THEN 1 ELSE 0 END AS flag")."
-                          LEFT JOIN (
-                              SELECT record, MAX(CASE WHEN contact_no REGEXP '{$numRe}' THEN CAST(contact_no AS UNSIGNED) ELSE 0 END) AS max_contact
-                              FROM (SELECT record, contact_no FROM ({$ancr()}) a UNION ALL SELECT record, contact_no FROM ({$anc()}) b) u
-                              GROUP BY record
-                          ) c ON c.record = p.record"],
+            // AHP019: no longer gated on a recorded delivery (pncr) - counted
+            // the moment the contact number (ancr or continuing anc visits)
+            // first reaches 8, regardless of pregnancy outcome. Must stay
+            // consistent with the identical query in
+            // IndicatorService::mnchIndicators(). 2026-11-05, per M&E.
+            'anc_8plus' => ['mode' => 'distinct',
+                'sql' => "
+                    WITH visits AS (
+                        SELECT record, reg_date AS visit_date, contact_no FROM ({$ancr()}) a
+                        UNION ALL
+                        SELECT record, visit_date, contact_no FROM ({$anc()}) b
+                    )
+                    SELECT record, MIN(visit_date) AS ref_date
+                    FROM visits
+                    WHERE contact_no REGEXP '{$numRe}' AND CAST(contact_no AS UNSIGNED) >= 8
+                      AND visit_date REGEXP '{$dateRe}'
+                    GROUP BY record"],
             'births_home' => ['mode' => 'row',
                 'sql' => "SELECT p.record, p.reg_date AS ref_date FROM ({$pncr()}) p WHERE p.place IN ('2','3')"],
             'ld_births_inst' => ['mode' => 'row',

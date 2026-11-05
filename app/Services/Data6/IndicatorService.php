@@ -368,14 +368,6 @@ class IndicatorService
 
         $pncrRow = $this->one("
             WITH demog AS ({$demog}), pncrp AS ({$pncr}),
-            contacts AS (
-                SELECT record, MAX(CASE WHEN contact_no REGEXP '".self::$NUM_RE."' THEN CAST(contact_no AS UNSIGNED) ELSE 0 END) AS max_contact
-                FROM (
-                    SELECT record, contact_no FROM ({$ancr}) a
-                    UNION ALL
-                    SELECT record, contact_no FROM ({$anc}) b
-                ) c GROUP BY record
-            ),
             pnc72 AS (SELECT DISTINCT m.record FROM ({$pncm}) m
                       JOIN pncrp r ON r.record = m.record
                       WHERE m.visit_date REGEXP '".self::$DATE_RE."' AND r.baby_dob REGEXP '".self::$DATE_RE."'
@@ -384,12 +376,34 @@ class IndicatorService
               COUNT(CASE WHEN {$this->periodCond('p.reg_date')} AND {$this->ageCond('p.reg_date')} THEN 1 END) AS deliveries,
               COUNT(CASE WHEN p.place IN ('2','3') AND {$this->periodCond('p.reg_date')} AND {$this->ageCond('p.reg_date')} THEN 1 END) AS non_institutional,
               COUNT(CASE WHEN p.place = '3' AND {$this->periodCond('p.reg_date')} AND {$this->ageCond('p.reg_date')} THEN 1 END) AS bba,
-              COUNT(CASE WHEN {$this->periodCond('p.reg_date')} AND {$this->ageCond('p.reg_date')} AND c.max_contact >= 8 THEN 1 END) AS anc8,
               COUNT(CASE WHEN {$this->periodCond('p.reg_date')} AND {$this->ageCond('p.reg_date')} AND pn.record IS NOT NULL THEN 1 END) AS pnc_within_72
             FROM pncrp p
             JOIN demog d ON d.record = p.record
-            LEFT JOIN contacts c ON c.record = p.record
             LEFT JOIN pnc72 pn ON pn.record = p.record
+        ", $bind);
+
+        // AHP019: no longer gated on having a recorded delivery (pncr) - a
+        // client can reach 8+ ANC contacts well before she delivers, or her
+        // delivery may never get logged in the PNC register. Counted the
+        // moment her contact number (ancr or continuing anc visits) first
+        // reaches 8, regardless of pregnancy outcome. 2026-11-05, per M&E.
+        $anc8Row = $this->one("
+            WITH demog AS ({$demog}),
+            visits AS (
+                SELECT record, reg_date AS visit_date, contact_no FROM ({$ancr}) a
+                UNION ALL
+                SELECT record, visit_date, contact_no FROM ({$anc}) b
+            ),
+            qualifying AS (
+                SELECT record, MIN(visit_date) AS ref_date
+                FROM visits
+                WHERE contact_no REGEXP '".self::$NUM_RE."' AND CAST(contact_no AS UNSIGNED) >= 8
+                  AND visit_date REGEXP '".self::$DATE_RE."'
+                GROUP BY record
+            )
+            SELECT COUNT(DISTINCT CASE WHEN {$this->periodCond('q.ref_date')} AND {$this->ageCond('q.ref_date')} THEN q.record END) AS anc8plus
+            FROM qualifying q
+            JOIN demog d ON d.record = q.record
         ", $bind);
 
         $deathRow = $this->one("
@@ -427,7 +441,7 @@ class IndicatorService
 
         return [
             'anc_new' => ['value' => (int) $ancRow->new_bookings],
-            'anc_8plus' => $this->rate((int) $pncrRow->anc8, (int) $pncrRow->deliveries),
+            'anc_8plus' => ['value' => (int) $anc8Row->anc8plus],
             'births_home' => ['value' => (int) $pncrRow->non_institutional, 'extra' => ['bba' => (int) $pncrRow->bba]],
             'ld_births_inst' => ['value' => (int) $ldRow->births_inst],
             'ld_births_home' => ['value' => (int) $ldRow->births_home, 'extra' => ['bba' => (int) $ldRow->bba]],
