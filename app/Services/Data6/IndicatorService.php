@@ -433,8 +433,8 @@ class IndicatorService
               COUNT(CASE WHEN p.newborn_die = '{$ldCodes['newborn_die_yes']}' AND {$this->periodCond('p.visit_date')} AND {$this->ageCond('p.visit_date')} THEN 1 END) AS neonatal_deaths,
               COUNT(CASE WHEN {$this->periodCond('p.visit_date')} AND {$this->ageCond('p.visit_date')} THEN 1 END) AS deliveries,
               COUNT(CASE WHEN p.pnc = '{$ldCodes['postnatal_care_yes']}' AND {$this->periodCond('p.visit_date')} AND {$this->ageCond('p.visit_date')} THEN 1 END) AS pnc_within_72,
-              COUNT(DISTINCT CASE WHEN p.hiv_status = '{$ldCodes['hiv_status_negative']}' AND p.breastfeeding = '{$ldCodes['breastfeeding_yes']}' AND {$this->periodCond('p.visit_date')} AND {$this->ageCond('p.visit_date')} THEN p.record END) AS bf_denom,
-              COUNT(DISTINCT CASE WHEN p.hiv_status = '{$ldCodes['hiv_status_negative']}' AND p.breastfeeding = '{$ldCodes['breastfeeding_yes']}' AND p.hiv_test_bf = '{$ldCodes['hiv_test_bf_yes']}' AND {$this->periodCond('p.visit_date')} AND {$this->ageCond('p.visit_date')} THEN p.record END) AS bf_numer,
+              COUNT(DISTINCT CASE WHEN p.hiv_status = '{$ldCodes['hiv_status_negative']}' AND {$this->periodCond('p.visit_date')} AND {$this->ageCond('p.visit_date')} THEN p.record END) AS bf_denom,
+              COUNT(DISTINCT CASE WHEN p.hiv_status = '{$ldCodes['hiv_status_negative']}' AND p.hiv_test_bf = '{$ldCodes['hiv_test_bf_yes']}' AND {$this->periodCond('p.visit_date')} AND {$this->ageCond('p.visit_date')} THEN p.record END) AS bf_numer,
               COUNT(CASE WHEN p.hiv_status = '{$ldCodes['hiv_status_positive']}' AND {$this->periodCond('p.visit_date')} AND {$this->ageCond('p.visit_date')} THEN 1 END) AS hiv_pos_deliveries,
               COUNT(CASE WHEN p.hiv_status = '{$ldCodes['hiv_status_positive']}' AND p.recieve_art = '{$ldCodes['recieve_art_yes']}' AND {$this->periodCond('p.visit_date')} AND {$this->ageCond('p.visit_date')} THEN 1 END) AS on_art_delivery
             FROM ldp p

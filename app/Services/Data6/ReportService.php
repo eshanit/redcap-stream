@@ -684,10 +684,9 @@ class ReportService
                           FROM ({$ancr()}) p WHERE p.first_booking = '1'"],
             'bf_retest' => ['mode' => 'rate_pair',
                 'num' => "SELECT p.record, p.visit_date AS ref_date FROM ({$ld()}) p
-                          WHERE p.hiv_status = '{$ldCodes['hiv_status_negative']}' AND p.breastfeeding = '{$ldCodes['breastfeeding_yes']}'
-                            AND p.hiv_test_bf = '{$ldCodes['hiv_test_bf_yes']}'",
+                          WHERE p.hiv_status = '{$ldCodes['hiv_status_negative']}' AND p.hiv_test_bf = '{$ldCodes['hiv_test_bf_yes']}'",
                 'den' => "SELECT p.record, p.visit_date AS ref_date FROM ({$ld()}) p
-                          WHERE p.hiv_status = '{$ldCodes['hiv_status_negative']}' AND p.breastfeeding = '{$ldCodes['breastfeeding_yes']}'"],
+                          WHERE p.hiv_status = '{$ldCodes['hiv_status_negative']}'"],
             'art_at_delivery' => ['mode' => 'rate_flag',
                 'sql' => "SELECT p.record, p.visit_date AS ref_date, CASE WHEN p.recieve_art = '{$ldCodes['recieve_art_yes']}' THEN 1 ELSE 0 END AS flag
                           FROM ({$ld()}) p WHERE p.hiv_status = '{$ldCodes['hiv_status_positive']}'"],
